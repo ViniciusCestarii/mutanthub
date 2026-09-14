@@ -1,5 +1,7 @@
 # MutantHub
 
+[![CI](https://github.com/brunoerg/mutanthub/actions/workflows/ci.yml/badge.svg)](https://github.com/brunoerg/mutanthub/actions/workflows/ci.yml)
+
 A collaborative platform for cataloguing, reviewing, reproducing and investigating software
 mutants that survive the test suites of open-source projects.
 
@@ -274,6 +276,18 @@ reviewer opens the queue and approves â†’ another user records a reproduction â†
 the history shows every step. A second suite covers the submission lifecycle (edit, needs
 information, resubmit, withdraw, killing-test reference), and a third covers project settings
 (members, roles, last-maintainer protection, deactivation).
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and on pull requests:
+
+- **checks**: `npm ci`, lint, type-check, Prettier check, unit + API tests, production build.
+- **e2e**: the same install, then Playwright (Chromium) against a PostgreSQL 17 service
+  container with migrations and seed applied, using mocked login and fixture repositories.
+  The HTML report and traces are uploaded as an artifact when a test fails.
+
+Both jobs need no secrets: `DATABASE_URL` points at the service container and `AUTH_SECRET` is a
+throwaway value set in the workflow.
 
 ## Routes
 
