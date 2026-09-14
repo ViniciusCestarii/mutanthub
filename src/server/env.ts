@@ -52,6 +52,10 @@ export const env = {
     const n = Number(process.env.GITHUB_CACHE_TTL ?? "300");
     return Number.isFinite(n) && n > 0 ? n : 300;
   },
+  /** Optional shared Redis for rate limits and the GitHub cache (multi-instance deployments). */
+  get redisUrl(): string | undefined {
+    return process.env.REDIS_URL || undefined;
+  },
   get isProduction(): boolean {
     return process.env.NODE_ENV === "production";
   },

@@ -1,7 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { isAppError } from "@/lib/errors";
-import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { checkRateLimit, RATE_LIMITS } from "@/server/infra/rate-limit";
 
 export function clientIp(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -22,7 +22,11 @@ export async function handleApi(
   request: Request,
   fn: () => Promise<NextResponse>,
 ): Promise<NextResponse> {
-  const limit = checkRateLimit({ ...RATE_LIMITS.api, action: "api", subject: clientIp(request) });
+  const limit = await checkRateLimit({
+    ...RATE_LIMITS.api,
+    action: "api",
+    subject: clientIp(request),
+  });
   if (!limit.ok) return apiError(429, "Rate limit exceeded. Try again in a minute.");
   try {
     const response = await fn();

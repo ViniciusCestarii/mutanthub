@@ -13,7 +13,7 @@ import {
   REVIEW_STATUS_ACTIVITY,
 } from "@/domain/mutants/status";
 import { forbidden, notFound, validationError } from "@/lib/errors";
-import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { enforceRateLimit, RATE_LIMITS } from "@/server/infra/rate-limit";
 import {
   changeMutationStatusSchema,
   fieldErrors,
@@ -95,7 +95,7 @@ export const reviewService = {
     if (!mutant) throw notFound("Mutant");
     if (!canReviewProject(principal, mutant.project.id))
       throw forbidden("Only reviewers of this project can moderate it");
-    enforceRateLimit({ ...RATE_LIMITS.review, action: "review", subject: principal.id });
+    await enforceRateLimit({ ...RATE_LIMITS.review, action: "review", subject: principal.id });
 
     const newStatus = REVIEW_ACTION_TO_STATUS[input.action];
     if (!canTransitionReview(mutant.reviewStatus, newStatus))
@@ -145,7 +145,7 @@ export const reviewService = {
     if (!mutant) throw notFound("Mutant");
     if (!canChangeMutationStatus(principal, mutant.project.id))
       throw forbidden("Only reviewers can classify mutants");
-    enforceRateLimit({ ...RATE_LIMITS.review, action: "review", subject: principal.id });
+    await enforceRateLimit({ ...RATE_LIMITS.review, action: "review", subject: principal.id });
     if (!canTransitionMutation(mutant.mutationStatus, input.status))
       throw validationError(`Mutant is already ${input.status.toLowerCase()}`);
 

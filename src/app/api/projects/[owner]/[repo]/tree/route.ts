@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAppError } from "@/lib/errors";
-import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { checkRateLimit, RATE_LIMITS } from "@/server/infra/rate-limit";
 import { isGitHubError, type GitHubErrorKind } from "@/server/github/types";
 import { codeBrowserService } from "@/server/services/code-browser-service";
 import { projectService } from "@/server/services/project-service";
@@ -29,7 +29,7 @@ export async function GET(
   request: Request,
   ctx: { params: Promise<{ owner: string; repo: string }> },
 ) {
-  const limit = checkRateLimit({
+  const limit = await checkRateLimit({
     ...RATE_LIMITS.api,
     action: "tree-api",
     subject: clientIp(request),

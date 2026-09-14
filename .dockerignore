@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.github
+.agents
+.claude
+.windsurf
+test-results
+playwright-report
+coverage
+*.log
+.env
+.env.*
+!.env.example
+tsconfig.tsbuildinfo

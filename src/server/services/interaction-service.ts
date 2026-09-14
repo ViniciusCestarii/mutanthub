@@ -2,7 +2,7 @@ import "server-only";
 import type { Principal } from "@/domain/auth/permissions";
 import { canComment, canEditComment, canValidateMutant } from "@/domain/auth/permissions";
 import { forbidden, notFound, validationError } from "@/lib/errors";
-import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { enforceRateLimit, RATE_LIMITS } from "@/server/infra/rate-limit";
 import { createCommentSchema, createValidationSchema, fieldErrors } from "@/lib/validation/schemas";
 import { LIMITS } from "@/lib/validation/limits";
 import {
@@ -23,7 +23,11 @@ export const interactionService = {
 
     const mutant = await mutantRepository.findListItem(input.mutantId);
     if (!mutant) throw notFound("Mutant");
-    enforceRateLimit({ ...RATE_LIMITS.validation, action: "validation", subject: principal.id });
+    await enforceRateLimit({
+      ...RATE_LIMITS.validation,
+      action: "validation",
+      subject: principal.id,
+    });
 
     return validationRepository.create({
       mutantId: mutant.id,
@@ -46,7 +50,7 @@ export const interactionService = {
 
     const mutant = await mutantRepository.findListItem(input.mutantId);
     if (!mutant) throw notFound("Mutant");
-    enforceRateLimit({ ...RATE_LIMITS.comment, action: "comment", subject: principal.id });
+    await enforceRateLimit({ ...RATE_LIMITS.comment, action: "comment", subject: principal.id });
 
     return commentRepository.create({
       mutantId: mutant.id,

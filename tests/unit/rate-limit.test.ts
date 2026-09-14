@@ -1,22 +1,37 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { checkRateLimit, enforceRateLimit, resetRateLimits } from "@/lib/rate-limit";
+import { MemoryRateLimitStore, rateLimitKey } from "@/lib/rate-limit";
+import { checkRateLimit, enforceRateLimit, resetRateLimits } from "@/server/infra/rate-limit";
 
-describe("rate limiter", () => {
-  beforeEach(() => resetRateLimits());
-
-  it("allows up to the limit and then blocks", () => {
-    const opts = { action: "t", subject: "u", limit: 2, windowMs: 60_000 };
-    expect(checkRateLimit(opts).ok).toBe(true);
-    expect(checkRateLimit(opts).ok).toBe(true);
-    expect(checkRateLimit(opts).ok).toBe(false);
-    expect(() => enforceRateLimit(opts)).toThrowError(/Too many requests/);
+describe("MemoryRateLimitStore", () => {
+  it("allows up to the limit and then blocks", async () => {
+    const store = new MemoryRateLimitStore();
+    expect(await store.hit("k", 2, 60_000)).toEqual({ ok: true, remaining: 1 });
+    expect(await store.hit("k", 2, 60_000)).toEqual({ ok: true, remaining: 0 });
+    expect(await store.hit("k", 2, 60_000)).toEqual({ ok: false, remaining: 0 });
   });
 
-  it("isolates subjects and actions", () => {
+  it("forgets hits after the window", async () => {
+    const store = new MemoryRateLimitStore();
+    expect((await store.hit("k", 1, 10)).ok).toBe(true);
+    expect((await store.hit("k", 1, 10)).ok).toBe(false);
+    await new Promise((r) => setTimeout(r, 15));
+    expect((await store.hit("k", 1, 10)).ok).toBe(true);
+  });
+
+  it("builds keys from action and subject", () => {
+    expect(rateLimitKey({ action: "a", subject: "s" })).toBe("a:s");
+  });
+});
+
+describe("rate limiter (memory store, no REDIS_URL)", () => {
+  beforeEach(() => resetRateLimits());
+
+  it("enforces limits per subject and action", async () => {
     const a = { action: "t", subject: "a", limit: 1, windowMs: 60_000 };
-    expect(checkRateLimit(a).ok).toBe(true);
-    expect(checkRateLimit({ ...a, subject: "b" }).ok).toBe(true);
-    expect(checkRateLimit({ ...a, action: "other" }).ok).toBe(true);
-    expect(checkRateLimit(a).ok).toBe(false);
+    expect((await checkRateLimit(a)).ok).toBe(true);
+    expect((await checkRateLimit({ ...a, subject: "b" })).ok).toBe(true);
+    expect((await checkRateLimit({ ...a, action: "other" })).ok).toBe(true);
+    expect((await checkRateLimit(a)).ok).toBe(false);
+    await expect(enforceRateLimit(a)).rejects.toThrowError(/Too many requests/);
   });
 });

@@ -11,7 +11,7 @@ import {
 } from "@/domain/mutants/status";
 import { summarizeValidations } from "@/domain/mutants/validation-summary";
 import { AppError, forbidden, notFound, validationError } from "@/lib/errors";
-import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { enforceRateLimit, RATE_LIMITS } from "@/server/infra/rate-limit";
 import {
   editMutantSchema,
   fieldErrors,
@@ -59,7 +59,7 @@ export const mutantService = {
     if (!parsed.success)
       throw validationError("Please fix the highlighted fields", fieldErrors(parsed.error));
     const input = parsed.data;
-    enforceRateLimit({
+    await enforceRateLimit({
       ...RATE_LIMITS.submitMutant,
       action: "submit-mutant",
       subject: principal.id,
@@ -232,7 +232,11 @@ export const mutantService = {
       throw validationError(
         `A ${mutant.reviewStatus.toLowerCase().replace("_", " ")} mutant can no longer be edited`,
       );
-    enforceRateLimit({ ...RATE_LIMITS.submitMutant, action: "edit-mutant", subject: principal.id });
+    await enforceRateLimit({
+      ...RATE_LIMITS.submitMutant,
+      action: "edit-mutant",
+      subject: principal.id,
+    });
 
     const gitDiff = looksLikeUnifiedDiff(input.gitDiff)
       ? input.gitDiff
@@ -315,7 +319,7 @@ export const mutantService = {
       throw validationError(
         "Only mutants that need information or were withdrawn can be resubmitted",
       );
-    enforceRateLimit({ ...RATE_LIMITS.review, action: "lifecycle", subject: principal.id });
+    await enforceRateLimit({ ...RATE_LIMITS.review, action: "lifecycle", subject: principal.id });
     return mutantRepository.changeStatus({
       mutantId: mutant.id,
       kind: "REVIEW",
@@ -339,7 +343,7 @@ export const mutantService = {
       throw forbidden("Only the submitter can withdraw this mutant");
     if (!canWithdraw(mutant.reviewStatus))
       throw validationError("Only pending mutants can be withdrawn");
-    enforceRateLimit({ ...RATE_LIMITS.review, action: "lifecycle", subject: principal.id });
+    await enforceRateLimit({ ...RATE_LIMITS.review, action: "lifecycle", subject: principal.id });
     return mutantRepository.changeStatus({
       mutantId: mutant.id,
       kind: "REVIEW",

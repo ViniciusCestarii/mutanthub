@@ -161,6 +161,7 @@ src/
 │   ├── auth/                 Auth.js config (GitHub + mock credentials), session helpers
 │   ├── db/prisma.ts          Prisma client singleton
 │   ├── github/               GitHubClient interface, live REST client, fixture mock, TTL cache
+│   ├── infra/                Redis connection, cache store and rate-limit store (memory or Redis)
 │   ├── repositories/         All Prisma queries (users, projects, mutants, interactions, stats)
 │   ├── services/             Use cases + authorization (project, code browser, mutant, review,
 │   │                         interaction, dashboard, search, user)
@@ -224,10 +225,41 @@ milestone; historical references are preserved as-is.
 - Server Actions include Next.js' built-in origin checks (CSRF protection); Auth.js protects its
   own routes. Public API routes are read-only.
 - Zod validates all inputs with size limits (`src/lib/validation/limits.ts`).
-- An in-memory sliding-window rate limiter protects submissions, validations, comments, reviews,
-  project registration and the public API (per user or per IP). Replace the store with Redis when
-  running multiple instances.
+- A rate limiter protects submissions, validations, comments, reviews, project registration and
+  the public API (per user or per IP). It uses an in-memory sliding window by default and a
+  shared Redis counter when `REDIS_URL` is set, falling back to memory if Redis is unreachable.
 - File paths are validated against traversal; the mock client refuses paths outside its fixtures.
+
+## Deploying with Docker
+
+The repository ships a multi-stage `Dockerfile` and `docker-compose.prod.yml`:
+
+- **builder** stage: full toolchain; used for `next build`, and reused by the `migrate` and
+  `seed` services because it contains the Prisma CLI, `tsx` and the fixture files.
+- **runner** stage: Next.js standalone output only (no dev dependencies, no Prisma CLI), runs as
+  a non-root user, exposes `/api/health` for the container health check.
+
+```bash
+cp .env.example .env            # set AUTH_SECRET, AUTH_URL, GitHub credentials
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml --profile seed run --rm seed   # optional demo data
+```
+
+The stack runs PostgreSQL 17, Redis 7, a one-off `migrate` job (`prisma migrate deploy`) that the
+app waits for, and the app on port `3000` (override with `APP_PORT`). Redis is wired through
+`REDIS_URL` so rate limits and the GitHub cache are shared; you can scale with
+`docker compose -f docker-compose.prod.yml up -d --scale app=3` behind your own reverse proxy.
+
+Without the compose plugin, the same images work with plain `docker run` (build with
+`--target builder` for migrations/seed and `--target runner` for the app).
+
+Production notes:
+
+- Set `AUTH_URL` to the public URL and keep `AUTH_MOCK=false`; the mocked login is refused in
+  production unless `AUTH_MOCK_ALLOW_PRODUCTION=true` is set explicitly (staging demos only).
+- Provide `GITHUB_TOKEN` (or leave `GITHUB_MODE=mock` for a demo with the fixture repositories).
+- Terminate TLS and set security headers in the reverse proxy; the app trusts the request host.
+- `GET /api/health` returns `200` when the database answers and reports Redis and GitHub mode.
 
 ## Public API
 
@@ -347,4 +379,3 @@ throwaway value set in the workflow.
 - GitHub App integration, pull-request links, CLI tooling.
 - LLM-assisted analysis and automated equivalent-mutant detection.
 - Notifications, subscriptions, gamification beyond the profile counters.
-- A shared cache/rate-limit store (Redis) for multi-instance deployments.

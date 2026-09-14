@@ -1,0 +1,99 @@
+# Production-style stack: app + PostgreSQL + Redis, with migrations applied
+# before the app starts and an optional one-off seed.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml --profile seed run --rm seed   # demo data
+#   docker compose -f docker-compose.prod.yml logs -f app
+#
+# Configure secrets in .env (AUTH_SECRET, AUTH_GITHUB_ID/SECRET, GITHUB_TOKEN, AUTH_URL).
+
+x-app-env: &app-env
+  DATABASE_URL: postgresql://mutanthub:${POSTGRES_PASSWORD:-mutanthub}@postgres:5432/mutanthub?schema=public
+  REDIS_URL: redis://redis:6379
+  AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
+  AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+  AUTH_GITHUB_ID: ${AUTH_GITHUB_ID:-}
+  AUTH_GITHUB_SECRET: ${AUTH_GITHUB_SECRET:-}
+  AUTH_MOCK: ${AUTH_MOCK:-false}
+  AUTH_MOCK_ALLOW_PRODUCTION: ${AUTH_MOCK_ALLOW_PRODUCTION:-false}
+  GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+  GITHUB_MODE: ${GITHUB_MODE:-auto}
+  GITHUB_CACHE_TTL: ${GITHUB_CACHE_TTL:-300}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: mutanthub
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mutanthub}
+      POSTGRES_DB: mutanthub
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mutanthub -d mutanthub"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    command:
+      [
+        "redis-server",
+        "--save",
+        "",
+        "--appendonly",
+        "no",
+        "--maxmemory",
+        "128mb",
+        "--maxmemory-policy",
+        "allkeys-lru",
+      ]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # Applies pending migrations, then exits. The app waits for it to succeed.
+  migrate:
+    build:
+      context: .
+      target: builder
+    image: mutanthub-tools
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment: *app-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      target: runner
+    image: mutanthub
+    environment: *app-env
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Optional demo data: docker compose -f docker-compose.prod.yml --profile seed run --rm seed
+  seed:
+    image: mutanthub-tools
+    build:
+      context: .
+      target: builder
+    command: ["npm", "run", "db:seed"]
+    environment: *app-env
+    profiles: ["seed"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:

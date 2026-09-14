@@ -1,24 +1,18 @@
-import { AppError } from "./errors";
-
 /**
- * In-memory sliding-window rate limiter. Adequate for a single Node process;
- * swap the store for Redis when running several instances.
+ * Rate-limiting primitives shared by the in-memory and Redis stores. The
+ * server-side entry point (`@/server/infra/rate-limit`) picks the store; this
+ * module stays free of server-only imports so it can be unit-tested directly.
  */
-interface Bucket {
-  timestamps: number[];
+export interface RateLimitResult {
+  ok: boolean;
+  remaining: number;
 }
 
-const buckets = new Map<string, Bucket>();
-const SWEEP_INTERVAL_MS = 60_000;
-let lastSweep = Date.now();
-
-function sweep(now: number, windowMs: number) {
-  if (now - lastSweep < SWEEP_INTERVAL_MS) return;
-  lastSweep = now;
-  for (const [key, bucket] of buckets) {
-    bucket.timestamps = bucket.timestamps.filter((t) => now - t < windowMs);
-    if (bucket.timestamps.length === 0) buckets.delete(key);
-  }
+export interface RateLimitStore {
+  /** Records one hit for `key` and reports whether it is within `limit` per `windowMs`. */
+  hit(key: string, limit: number, windowMs: number): Promise<RateLimitResult>;
+  /** Clears all counters (tests, admin tooling). */
+  reset(): Promise<void>;
 }
 
 export interface RateLimitOptions {
@@ -30,34 +24,42 @@ export interface RateLimitOptions {
   windowMs: number;
 }
 
-export function checkRateLimit(opts: RateLimitOptions): { ok: boolean; remaining: number } {
-  const now = Date.now();
-  sweep(now, opts.windowMs);
-  const key = `${opts.action}:${opts.subject}`;
-  const bucket = buckets.get(key) ?? { timestamps: [] };
-  bucket.timestamps = bucket.timestamps.filter((t) => now - t < opts.windowMs);
-  if (bucket.timestamps.length >= opts.limit) {
-    buckets.set(key, bucket);
-    return { ok: false, remaining: 0 };
-  }
-  bucket.timestamps.push(now);
-  buckets.set(key, bucket);
-  return { ok: true, remaining: opts.limit - bucket.timestamps.length };
+export function rateLimitKey(opts: Pick<RateLimitOptions, "action" | "subject">): string {
+  return `${opts.action}:${opts.subject}`;
 }
 
-export function enforceRateLimit(opts: RateLimitOptions): void {
-  const result = checkRateLimit(opts);
-  if (!result.ok) {
-    throw new AppError(
-      "RATE_LIMITED",
-      "Too many requests. Please slow down and try again shortly.",
-    );
-  }
-}
+/** Sliding-window store for a single process. */
+export class MemoryRateLimitStore implements RateLimitStore {
+  private readonly buckets = new Map<string, number[]>();
+  private lastSweep = Date.now();
+  private static readonly SWEEP_INTERVAL_MS = 60_000;
 
-/** Test helper. */
-export function resetRateLimits(): void {
-  buckets.clear();
+  async hit(key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
+    const now = Date.now();
+    this.sweep(now, windowMs);
+    const timestamps = (this.buckets.get(key) ?? []).filter((t) => now - t < windowMs);
+    if (timestamps.length >= limit) {
+      this.buckets.set(key, timestamps);
+      return { ok: false, remaining: 0 };
+    }
+    timestamps.push(now);
+    this.buckets.set(key, timestamps);
+    return { ok: true, remaining: limit - timestamps.length };
+  }
+
+  async reset(): Promise<void> {
+    this.buckets.clear();
+  }
+
+  private sweep(now: number, windowMs: number): void {
+    if (now - this.lastSweep < MemoryRateLimitStore.SWEEP_INTERVAL_MS) return;
+    this.lastSweep = now;
+    for (const [key, timestamps] of this.buckets) {
+      const alive = timestamps.filter((t) => now - t < windowMs);
+      if (alive.length === 0) this.buckets.delete(key);
+      else this.buckets.set(key, alive);
+    }
+  }
 }
 
 export const RATE_LIMITS = {

@@ -2,7 +2,7 @@ import "server-only";
 import type { Principal } from "@/domain/auth/permissions";
 import { canManageProject, canRegisterProject } from "@/domain/auth/permissions";
 import { AppError, conflict, forbidden, notFound, validationError } from "@/lib/errors";
-import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { enforceRateLimit, RATE_LIMITS } from "@/server/infra/rate-limit";
 import {
   addMemberSchema,
   changeMemberRoleSchema,
@@ -44,7 +44,7 @@ export const projectService = {
     const parsed = registerProjectSchema.safeParse(rawInput);
     if (!parsed.success)
       throw validationError("Invalid repository", { repository: "Use owner/repository" });
-    enforceRateLimit({
+    await enforceRateLimit({
       ...RATE_LIMITS.registerProject,
       action: "register-project",
       subject: principal.id,

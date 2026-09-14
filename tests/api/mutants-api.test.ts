@@ -10,7 +10,7 @@ vi.mock("@/server/services/mutant-service", () => ({
 import { GET as listGet } from "@/app/api/mutants/route";
 import { GET as detailGet } from "@/app/api/mutants/[id]/route";
 import { AppError } from "@/lib/errors";
-import { RATE_LIMITS, resetRateLimits } from "@/lib/rate-limit";
+import { RATE_LIMITS, resetRateLimits } from "@/server/infra/rate-limit";
 
 const user = {
   id: "u1",
@@ -55,9 +55,9 @@ function listItem(overrides: Partial<MutantListItem> = {}): MutantListItem {
 }
 
 describe("GET /api/mutants", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     listMock.mockReset();
-    resetRateLimits();
+    await resetRateLimits();
   });
 
   it("returns serialized mutants with pagination", async () => {
@@ -110,9 +110,9 @@ describe("GET /api/mutants", () => {
 });
 
 describe("GET /api/mutants/:id", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     detailMock.mockReset();
-    resetRateLimits();
+    await resetRateLimits();
   });
 
   it("rejects invalid ids", async () => {
