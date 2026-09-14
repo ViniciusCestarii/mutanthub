@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: mutanthub-postgres
+    environment:
+      POSTGRES_USER: mutanthub
+      POSTGRES_PASSWORD: mutanthub
+      POSTGRES_DB: mutanthub
+    ports:
+      - "5432:5432"
+    volumes:
+      - mutanthub-pgdata:/var/lib/postgresql/data
+
+volumes:
+  mutanthub-pgdata:

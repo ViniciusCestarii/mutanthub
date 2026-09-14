@@ -1,0 +1,344 @@
+// MutantHub database schema.
+//
+// Design notes
+// - A Mutant always points to a Revision (an exact commit). Line numbers are
+//   never used as identity; the fingerprint (project + revision + file +
+//   normalized original/mutated code) is the duplicate-detection key.
+// - Moderation state (reviewStatus) and experimental outcome (mutationStatus)
+//   are independent. Every transition is appended to MutantStatusHistory.
+// - Commands stored on Submission / Validation are evidence only. They are
+//   never executed by the server.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum GlobalRole {
+  USER
+  ADMIN
+}
+
+enum ProjectRole {
+  CONTRIBUTOR
+  REVIEWER
+  MAINTAINER
+}
+
+enum MutationOperator {
+  ARITHMETIC_OPERATOR
+  RELATIONAL_OPERATOR
+  CONDITIONAL_OPERATOR
+  LOGICAL_OPERATOR
+  CONSTANT_REPLACEMENT
+  RETURN_VALUE
+  STATEMENT_DELETION
+  FUNCTION_CALL
+  CUSTOM
+  UNKNOWN
+}
+
+enum ReviewStatus {
+  PENDING
+  NEEDS_INFORMATION
+  APPROVED
+  REJECTED
+  DUPLICATE
+  WITHDRAWN
+}
+
+enum MutationStatus {
+  UNKNOWN
+  SURVIVED
+  KILLED
+  EQUIVALENT
+  INVALID
+}
+
+enum ValidationResult {
+  SURVIVED
+  KILLED
+  COULD_NOT_REPRODUCE
+}
+
+enum ObservedResult {
+  SURVIVED
+  KILLED
+  UNKNOWN
+}
+
+enum StatusKind {
+  REVIEW
+  MUTATION
+  /// A contributor edited the submission (fields listed in `comment`).
+  SUBMISSION
+}
+
+enum ActivityType {
+  MUTANT_SUBMITTED
+  MUTANT_APPROVED
+  MUTANT_REJECTED
+  MUTANT_NEEDS_INFORMATION
+  MUTANT_MARKED_DUPLICATE
+  MUTANT_REPRODUCED
+  MUTANT_KILLED
+  MUTANT_MARKED_EQUIVALENT
+  MUTANT_MARKED_INVALID
+  MUTANT_STATUS_CHANGED
+  COMMENT_ADDED
+  MUTANT_EDITED
+  MUTANT_WITHDRAWN
+  MUTANT_RESUBMITTED
+}
+
+// ---------------------------------------------------------------------------
+// Users (sessions are stateless JWTs; GitHub identity is stored on the user)
+// ---------------------------------------------------------------------------
+
+model User {
+  id             String     @id @default(cuid())
+  githubId       String?    @unique
+  githubUsername String     @unique
+  displayName    String
+  avatarUrl      String?
+  email          String?    @unique
+  globalRole     GlobalRole @default(USER)
+  bio            String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  // Domain relations
+  memberships   ProjectMember[]
+  follows       ProjectFollow[]
+  mutants       Mutant[]              @relation("MutantCreatedBy")
+  submissions   Submission[]
+  validations   Validation[]
+  comments      Comment[]
+  statusChanges MutantStatusHistory[]
+  activities    Activity[]
+  addedProjects Project[]             @relation("ProjectAddedBy")
+
+  @@index([globalRole])
+}
+
+// ---------------------------------------------------------------------------
+// Projects
+// ---------------------------------------------------------------------------
+
+model Project {
+  id                 String   @id @default(cuid())
+  githubOwner        String
+  githubRepository   String
+  githubRepositoryId String?  @unique
+  displayName        String
+  description        String?
+  defaultBranch      String   @default("main")
+  language           String?
+  isActive           Boolean  @default(true)
+  addedById          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  addedBy    User?           @relation("ProjectAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+  members    ProjectMember[]
+  followers  ProjectFollow[]
+  revisions  Revision[]
+  mutants    Mutant[]
+  activities Activity[]
+
+  @@unique([githubOwner, githubRepository])
+  @@index([isActive])
+}
+
+model ProjectMember {
+  id        String      @id @default(cuid())
+  projectId String
+  userId    String
+  role      ProjectRole @default(CONTRIBUTOR)
+  createdAt DateTime    @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+}
+
+model ProjectFollow {
+  projectId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([userId])
+}
+
+/// An exact Git commit of a project. Mutants always reference a Revision.
+model Revision {
+  id            String    @id @default(cuid())
+  projectId     String
+  commitSha     String
+  branch        String?
+  commitMessage String?
+  author        String?
+  commitDate    DateTime?
+  createdAt     DateTime  @default(now())
+
+  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  mutants Mutant[]
+
+  @@unique([projectId, commitSha])
+}
+
+// ---------------------------------------------------------------------------
+// Mutants
+// ---------------------------------------------------------------------------
+
+model Mutant {
+  id               Int              @id @default(autoincrement())
+  projectId        String
+  revisionId       String
+  filePath         String
+  startLine        Int
+  endLine          Int
+  originalCode     String
+  mutatedCode      String
+  gitDiff          String
+  mutationOperator MutationOperator @default(UNKNOWN)
+  title            String
+  description      String?
+  fingerprint      String
+  reviewStatus     ReviewStatus     @default(PENDING)
+  mutationStatus   MutationStatus   @default(UNKNOWN)
+  duplicateOfId    Int?
+  createdById      String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  project       Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  revision      Revision              @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+  createdBy     User                  @relation("MutantCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  duplicateOf   Mutant?               @relation("MutantDuplicates", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates    Mutant[]              @relation("MutantDuplicates")
+  submissions   Submission[]
+  validations   Validation[]
+  comments      Comment[]
+  statusHistory MutantStatusHistory[]
+  activities    Activity[]
+
+  @@index([projectId, filePath])
+  @@index([revisionId, filePath, startLine])
+  @@index([fingerprint])
+  @@index([reviewStatus])
+  @@index([mutationStatus])
+  @@index([createdById])
+  @@index([createdAt])
+}
+
+/// How the submitter tested the mutant. Commands are stored as text only.
+model Submission {
+  id                     String         @id @default(cuid())
+  mutantId               Int
+  submittedById          String
+  buildCommand           String?
+  testCommand            String
+  fuzzCommand            String?
+  testDurationSeconds    Int?
+  environmentDescription String
+  operatingSystem        String?
+  compiler               String?
+  observedResult         ObservedResult @default(UNKNOWN)
+  notes                  String?
+  stdout                 String?
+  stderr                 String?
+  createdAt              DateTime       @default(now())
+
+  mutant      Mutant @relation(fields: [mutantId], references: [id], onDelete: Cascade)
+  submittedBy User   @relation(fields: [submittedById], references: [id], onDelete: Restrict)
+
+  @@index([mutantId])
+  @@index([submittedById])
+}
+
+/// A reproduction attempt by another user.
+model Validation {
+  id             String           @id @default(cuid())
+  mutantId       Int
+  userId         String
+  result         ValidationResult
+  command        String?
+  environment    String?
+  notes          String?
+  /// Reference to the test that kills the mutant (URL, PR, or test path). Text only.
+  killingTestRef String?
+  createdAt      DateTime         @default(now())
+
+  mutant Mutant @relation(fields: [mutantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([mutantId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  mutantId  Int
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  mutant Mutant @relation(fields: [mutantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([mutantId, createdAt])
+  @@index([userId])
+}
+
+/// Append-only log of review/mutation status transitions.
+model MutantStatusHistory {
+  id            String     @id @default(cuid())
+  mutantId      Int
+  changedById   String?
+  kind          StatusKind
+  previousValue String?
+  newValue      String
+  comment       String?
+  createdAt     DateTime   @default(now())
+
+  mutant    Mutant @relation(fields: [mutantId], references: [id], onDelete: Cascade)
+  changedBy User?  @relation(fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([mutantId, createdAt])
+}
+
+model Activity {
+  id        String       @id @default(cuid())
+  type      ActivityType
+  actorId   String?
+  projectId String?
+  mutantId  Int?
+  payload   Json?
+  createdAt DateTime     @default(now())
+
+  actor   User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  mutant  Mutant?  @relation(fields: [mutantId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([projectId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([mutantId])
+}

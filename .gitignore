@@ -30,8 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files: real secrets stay local, the documented template is committed
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +40,20 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# AI / editor tooling generated locally (Prisma CLI writes .agents, editors write the rest)
+/.agents/
+/.claude/
+/.windsurf/
+/.cursor/
+/.idea/
+/.vscode/
+/.DS_Store
