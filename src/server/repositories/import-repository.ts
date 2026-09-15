@@ -38,7 +38,7 @@ export interface ImportMutantData {
     testCommand: string;
     fuzzCommand: string | null;
     testDurationSeconds: number | null;
-    environmentDescription: string;
+    environmentDescription: string | null;
     observedResult: ObservedResult;
     notes: string | null;
   };

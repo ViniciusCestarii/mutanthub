@@ -88,7 +88,11 @@ function SubmissionEvidence({
       <dl className={`grid gap-x-6 gap-y-1 text-xs ${compact ? "grid-cols-1" : "sm:grid-cols-3"}`}>
         <div>
           <dt className="text-muted-foreground">Environment</dt>
-          <dd className="whitespace-pre-wrap">{s.environmentDescription}</dd>
+          <dd className="whitespace-pre-wrap" data-testid="evidence-environment">
+            {s.environmentDescription ?? (
+              <span className="text-muted-foreground italic">not specified</span>
+            )}
+          </dd>
         </div>
         {s.operatingSystem ? (
           <div>

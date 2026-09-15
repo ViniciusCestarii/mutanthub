@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ImportParseError, parseImportFile } from "@/domain/import/parse";
-import { generateTitle, IMPORT_MAX_ROWS, prepareRow } from "@/domain/import/schema";
+import { IMPORT_MAX_ROWS, prepareRow } from "@/domain/import/schema";
+import { generateTitle } from "@/domain/mutants/title";
 
 const COMMIT = "e8d1c4b7a2f5e8d1c4b7a2f5e8d1c4b7a2f5e8d1";
 const row = {
@@ -118,7 +119,11 @@ describe("prepareRow", () => {
 
   it("generates titles from the operator and file name", () => {
     expect(
-      generateTitle({ mutationOperator: "RELATIONAL_OPERATOR", file: "src/a/b.c", startLine: 9 }),
+      generateTitle({
+        mutationOperator: "RELATIONAL_OPERATOR",
+        filePath: "src/a/b.c",
+        startLine: 9,
+      }),
     ).toBe("Relational operator mutation at b.c:9");
   });
 });

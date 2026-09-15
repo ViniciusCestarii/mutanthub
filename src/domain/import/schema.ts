@@ -6,7 +6,7 @@ import {
   mutationOperatorSchema,
   observedResultSchema,
 } from "@/lib/validation/schemas";
-import { operatorLabel } from "@/domain/mutants/operators";
+import { generateTitle } from "@/domain/mutants/title";
 
 /** Caps for one uploaded file. */
 export const IMPORT_MAX_ROWS = 2000;
@@ -102,7 +102,7 @@ export interface ImportRow {
   buildCommand: string | null;
   testCommand: string;
   fuzzCommand: string | null;
-  environment: string;
+  environment: string | null;
   testDurationSeconds: number | null;
   notes: string | null;
   externalId: string | null;
@@ -113,16 +113,6 @@ export interface RowIssue {
   message: string;
   /** For duplicates: the id of the mutant that already exists. */
   existingId?: number;
-}
-
-export function generateTitle(
-  row: Pick<ImportRow, "mutationOperator" | "file" | "startLine">,
-): string {
-  const name = row.file.split("/").pop() ?? row.file;
-  return `${operatorLabel(row.mutationOperator)} mutation at ${name}:${row.startLine}`.slice(
-    0,
-    LIMITS.title,
-  );
 }
 
 /** Applies batch defaults and produces a complete row, or the first validation problem. */
@@ -151,12 +141,7 @@ export function prepareRow(
       ok: false,
       issue: { index, message: "testCommand: missing (set it on the row or in defaults)" },
     };
-  const environment = r.environment ?? defaults.environment;
-  if (!environment)
-    return {
-      ok: false,
-      issue: { index, message: "environment: missing (set it on the row or in defaults)" },
-    };
+  const environment = r.environment ?? defaults.environment ?? null;
   const observedResult = r.observedResult ?? defaults.observedResult;
   if (!observedResult)
     return {
@@ -182,7 +167,7 @@ export function prepareRow(
     mutatedCode: r.mutatedCode,
     diff: r.diff ?? null,
     mutationOperator,
-    title: r.title ?? generateTitle({ mutationOperator, file: r.file, startLine: r.startLine }),
+    title: r.title ?? generateTitle({ mutationOperator, filePath: r.file, startLine: r.startLine }),
     description: r.description ?? null,
     observedResult,
     buildCommand: r.buildCommand ?? defaults.buildCommand ?? null,

@@ -76,7 +76,9 @@ and **service → GitHubClient (live or mock) → cache**.
     outcome). A mutant can be `APPROVED` + `SURVIVED` today and become `KILLED` later without
     losing its history.
 - **Submission** – how the submitter tested the mutant (build/test/fuzz commands, duration,
-  environment, OS, compiler, observed result, notes, logs). Text only.
+  environment, OS, compiler, observed result, notes, logs). Only the test command and the
+  observed result are required; the title is generated from the operator and location when
+  left empty. Text only.
 - **Validation** – a reproduction attempt by another user: `SURVIVED`, `KILLED`,
   `COULD_NOT_REPRODUCE`, plus command/environment/notes and an optional `killingTestRef`.
 - **KillClaim** – a structured claim that a pull request, commit or test kills the mutant, with

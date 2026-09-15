@@ -72,7 +72,8 @@ export const filePathSchema = z
 
 /** Fields describing the mutation itself (shared by submission and edits). */
 const mutationFields = {
-  title: trimmed(LIMITS.title).min(3, "Title must have at least 3 characters"),
+  /** Optional: generated from the operator and location when empty. */
+  title: optionalText(LIMITS.title),
   mutationOperator: mutationOperatorSchema,
   originalCode: z.string().min(1, "Original code is required").max(LIMITS.code),
   mutatedCode: z.string().min(1, "Mutated code is required").max(LIMITS.code),
@@ -92,10 +93,7 @@ const evidenceFields = {
       .min(0)
       .max(60 * 60 * 24 * 30),
   ),
-  environmentDescription: trimmed(LIMITS.environment).min(
-    3,
-    "Describe the environment (OS, compiler, toolchain)",
-  ),
+  environmentDescription: optionalText(LIMITS.environment),
   operatingSystem: optionalText(200),
   compiler: optionalText(200),
   observedResult: observedResultSchema,

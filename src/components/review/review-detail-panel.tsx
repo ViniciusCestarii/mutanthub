@@ -69,6 +69,15 @@ export function ReviewDetailPanel({ view, signedIn }: ReviewDetailPanelProps) {
         height={200}
         compact
       />
+      {mutant.submissions.at(-1)?.environmentDescription ? null : (
+        <p
+          className="border-border text-muted-foreground rounded-md border border-dashed px-3 py-2 text-xs"
+          data-testid="review-environment-hint"
+        >
+          No environment was given. If it matters for reproducing the result, ask the submitter with
+          &ldquo;Needs information&rdquo;.
+        </p>
+      )}
       <EvidenceSection submissions={mutant.submissions} compact />
       <ReproductionSection
         mutantId={mutant.id}

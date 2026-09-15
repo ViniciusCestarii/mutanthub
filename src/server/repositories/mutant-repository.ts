@@ -188,7 +188,7 @@ export interface CreateMutantData {
     testCommand: string;
     fuzzCommand: string | null;
     testDurationSeconds: number | null;
-    environmentDescription: string;
+    environmentDescription: string | null;
     operatingSystem: string | null;
     compiler: string | null;
     observedResult: ObservedResult;

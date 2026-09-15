@@ -39,7 +39,7 @@ export interface PublicMutantDetail extends PublicMutant {
     testCommand: string;
     fuzzCommand: string | null;
     testDurationSeconds: number | null;
-    environment: string;
+    environment: string | null;
     operatingSystem: string | null;
     compiler: string | null;
     observedResult: string;

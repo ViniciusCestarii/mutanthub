@@ -2,6 +2,7 @@ import "server-only";
 import type { Principal } from "@/domain/auth/permissions";
 import { canReviewProject, canSubmitMutant, isMutantOwner } from "@/domain/auth/permissions";
 import { computeFingerprint } from "@/domain/mutants/fingerprint";
+import { generateTitle } from "@/domain/mutants/title";
 import { generateUnifiedDiff, looksLikeUnifiedDiff } from "@/domain/mutants/diff";
 import {
   canEditSubmission,
@@ -115,7 +116,13 @@ export const mutantService = {
       mutatedCode: input.mutatedCode,
       gitDiff,
       mutationOperator: input.mutationOperator,
-      title: input.title,
+      title:
+        input.title ??
+        generateTitle({
+          mutationOperator: input.mutationOperator,
+          filePath: input.filePath,
+          startLine: input.startLine,
+        }),
       description: input.description ?? null,
       fingerprint,
       mutationStatus: initialMutationStatus(input.observedResult),
@@ -125,7 +132,7 @@ export const mutantService = {
         testCommand: input.testCommand,
         fuzzCommand: input.fuzzCommand ?? null,
         testDurationSeconds: input.testDurationSeconds ?? null,
-        environmentDescription: input.environmentDescription,
+        environmentDescription: input.environmentDescription ?? null,
         operatingSystem: input.operatingSystem ?? null,
         compiler: input.compiler ?? null,
         observedResult: input.observedResult,
@@ -263,7 +270,13 @@ export const mutantService = {
     });
 
     const fields = {
-      title: input.title,
+      title:
+        input.title ??
+        generateTitle({
+          mutationOperator: input.mutationOperator,
+          filePath: mutant.filePath,
+          startLine: mutant.startLine,
+        }),
       mutationOperator: input.mutationOperator,
       originalCode: input.originalCode,
       mutatedCode: input.mutatedCode,
@@ -277,7 +290,7 @@ export const mutantService = {
       testCommand: input.testCommand,
       fuzzCommand: input.fuzzCommand ?? null,
       testDurationSeconds: input.testDurationSeconds ?? null,
-      environmentDescription: input.environmentDescription,
+      environmentDescription: input.environmentDescription ?? null,
       operatingSystem: input.operatingSystem ?? null,
       compiler: input.compiler ?? null,
       observedResult: input.observedResult,

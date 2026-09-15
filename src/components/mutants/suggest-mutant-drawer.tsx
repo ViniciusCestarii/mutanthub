@@ -335,13 +335,17 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
                   Mutation
                 </h3>
                 <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
-                  <Field label="Title" htmlFor="title" required error={errors.title}>
+                  <Field
+                    label="Title"
+                    htmlFor="title"
+                    error={errors.title}
+                    hint="Optional: generated from the operator and location when left empty"
+                  >
                     <Input
                       id="title"
                       name="title"
                       placeholder="e.g. Relax bounds check in CheckMinimalPush"
                       data-testid="mutant-title"
-                      required
                     />
                   </Field>
                   <Field
@@ -587,9 +591,8 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
                 <Field
                   label="Environment"
                   htmlFor="environmentDescription"
-                  required
                   error={errors.environmentDescription}
-                  hint="OS, compiler, toolchain versions, relevant flags"
+                  hint="Optional but helps reproduction: OS, compiler, toolchain versions, relevant flags"
                 >
                   <Textarea
                     id="environmentDescription"
@@ -597,7 +600,6 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
                     placeholder="Ubuntu 24.04, gcc 14.2, Boost 1.83"
                     className="min-h-16 text-xs"
                     data-testid="mutant-environment"
-                    required
                   />
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">

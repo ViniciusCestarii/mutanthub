@@ -80,7 +80,7 @@ mocked `curl/curl` fixture is in [`docs/examples/import-example.json`](examples/
 | `description`                                                 | no                | Markdown                                                                        |
 | `observedResult`                                              | row or `defaults` | `SURVIVED`, `KILLED` or `UNKNOWN`; becomes the mutant's initial outcome         |
 | `testCommand`                                                 | row or `defaults` | Stored as text, shown as reproduction instructions                              |
-| `environment`                                                 | row or `defaults` | Free text                                                                       |
+| `environment`                                                 | no                | Free text; recommended so others can reproduce the run                          |
 | `buildCommand`, `fuzzCommand`, `testDurationSeconds`, `notes` | no                | As in the suggest-mutant form                                                   |
 | `tool.mutantId` / `externalId`                                | no                | The tool's own identifier, kept as `externalId` for traceability                |
 

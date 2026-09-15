@@ -121,8 +121,7 @@ export default async function ImportPage({ params }: { params: Params }) {
               <span className="font-mono">originalCode</span>,{" "}
               <span className="font-mono">mutatedCode</span>;{" "}
               <span className="font-mono">commit</span>,{" "}
-              <span className="font-mono">testCommand</span>,{" "}
-              <span className="font-mono">environment</span> and{" "}
+              <span className="font-mono">testCommand</span> and{" "}
               <span className="font-mono">observedResult</span> may come from{" "}
               <span className="font-mono">defaults</span>. See{" "}
               <Link href="/docs/import" className="underline">

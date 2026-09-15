@@ -286,7 +286,7 @@ model Submission {
   testCommand            String
   fuzzCommand            String?
   testDurationSeconds    Int?
-  environmentDescription String
+  environmentDescription String?
   operatingSystem        String?
   compiler               String?
   observedResult         ObservedResult @default(UNKNOWN)

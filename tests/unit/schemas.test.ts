@@ -39,6 +39,16 @@ describe("submitMutantSchema", () => {
     expect(parsed.description).toBeUndefined();
   });
 
+  it("accepts submissions without a title or environment", () => {
+    const parsed = submitMutantSchema.parse({
+      ...validSubmission,
+      title: "",
+      environmentDescription: "   ",
+    });
+    expect(parsed.title).toBeUndefined();
+    expect(parsed.environmentDescription).toBeUndefined();
+  });
+
   it("rejects identical original and mutated code", () => {
     const result = submitMutantSchema.safeParse({
       ...validSubmission,
