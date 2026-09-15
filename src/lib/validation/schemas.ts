@@ -182,6 +182,25 @@ export const createValidationSchema = z.object({
   notes: optionalText(LIMITS.notes),
   /** URL, pull request or test path that kills the mutant. Free text, never executed. */
   killingTestRef: optionalText(LIMITS.killingTestRef),
+  /** Commit the reproduction ran against (defaults to the mutant's revision). */
+  commitSha: z
+    .union([z.literal(""), commitShaSchema])
+    .optional()
+    .transform((v) => (v ? v.toLowerCase() : undefined)),
+  /** Attaches the reproduction to a kill claim (verification at its commit). */
+  killClaimId: optionalText(64),
+});
+
+export const createKillClaimSchema = z.object({
+  mutantId: z.coerce.number().int().positive(),
+  reference: trimmed(300).min(1, "Enter a pull request, commit or test path"),
+  note: optionalText(LIMITS.reviewComment),
+});
+
+export const resolveKillClaimSchema = z.object({
+  claimId: z.string().min(1),
+  verdict: z.enum(["VERIFIED", "REFUTED"]),
+  note: optionalText(LIMITS.reviewComment),
 });
 
 export type CreateValidationInput = z.infer<typeof createValidationSchema>;

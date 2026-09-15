@@ -15,6 +15,9 @@ import { ReproductionSection } from "@/components/mutant-detail/reproduction-sec
 import { HistorySection } from "@/components/mutant-detail/history-section";
 import { ReviewActions } from "@/components/review/review-actions";
 import { LifecycleActions } from "@/components/mutant-detail/lifecycle-actions";
+import { KillClaimsSection } from "@/components/mutant-detail/kill-claims-section";
+import { killClaimService } from "@/server/services/kill-claim-service";
+import { referenceLabel } from "@/domain/kill-claims/reference";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +51,14 @@ export default async function MutantPage({ params }: { params: Promise<{ id: str
   const user = await getCurrentUser();
   const view = await loadView(id, user);
   const { mutant } = view;
+  const claims = await killClaimService.listForMutant(mutant.id);
+  const claimOptions = claims
+    .filter((c) => c.status === "CLAIMED" || c.status === "STALE")
+    .map((c) => ({
+      id: c.id,
+      label: `${referenceLabel(c.kind, c.reference)}${c.verifyCommitSha ? ` at ${c.verifyCommitSha.slice(0, 7)}` : ""}`,
+      commitSha: c.verifyCommitSha,
+    }));
 
   return (
     <PageContainer wide className="space-y-4" data-testid="mutant-page">
@@ -102,6 +113,14 @@ export default async function MutantPage({ params }: { params: Promise<{ id: str
             summary={view.validationSummary}
             validations={mutant.validations}
             signedIn={Boolean(user)}
+            claims={claimOptions}
+          />
+          <KillClaimsSection
+            mutantId={mutant.id}
+            project={{ owner: mutant.project.githubOwner, repo: mutant.project.githubRepository }}
+            claims={claims}
+            signedIn={Boolean(user)}
+            canReview={view.canReview}
           />
           <HistorySection history={mutant.statusHistory} />
           {mutant.duplicates.length > 0 ? (

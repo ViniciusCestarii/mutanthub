@@ -16,6 +16,7 @@ import { isGitHubError } from "@/server/github/types";
 import { publishCheckRun } from "@/server/github/check-run";
 import { projectRepository } from "@/server/repositories/project-repository";
 import { pullRequestRepository } from "@/server/repositories/pull-request-repository";
+import { killClaimRepository } from "@/server/repositories/kill-claim-repository";
 import type { Project } from "@/generated/prisma/client";
 import { env } from "@/server/env";
 
@@ -169,7 +170,19 @@ export const pullRequestService = {
       commitSha: m.revision.commitSha,
     }));
     const base = appBaseUrl();
-    const summary = buildCheckSummary(pr, checkMutants, changed, base);
+    const claims = await killClaimRepository.listForPullRequest(pr.id);
+    const summary = buildCheckSummary(
+      pr,
+      checkMutants,
+      changed,
+      base,
+      claims.map((c) => ({
+        mutantId: c.mutantId,
+        mutantTitle: c.mutant.title,
+        status: c.status,
+        applies: c.applies,
+      })),
+    );
     const id = await publishCheckRun({
       owner: pr.project.githubOwner,
       repo: pr.project.githubRepository,

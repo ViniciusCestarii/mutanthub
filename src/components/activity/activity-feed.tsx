@@ -108,6 +108,16 @@ function describe(item: ActivityItem): React.ReactNode {
           <span className="font-mono text-xs">{String(payload.to ?? "")}</span>
         </>
       );
+    case "KILL_CLAIMED":
+      return (
+        <>
+          {actor} reported a killing test for mutant {mutant}
+        </>
+      );
+    case "KILL_VERIFIED":
+      return <>A killing test for mutant {mutant} was verified</>;
+    case "KILL_REFUTED":
+      return <>A killing-test claim for mutant {mutant} was refuted</>;
     case "COMMENT_ADDED":
       return (
         <>

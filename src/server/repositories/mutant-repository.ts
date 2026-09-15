@@ -103,6 +103,7 @@ export const mutantExportSelect = {
     take: 1,
   },
   validations: { select: { result: true, killingTestRef: true } },
+  killClaims: { select: { kind: true, reference: true, status: true } },
 } satisfies Prisma.MutantSelect;
 
 export type MutantExportRecord = Prisma.MutantGetPayload<{ select: typeof mutantExportSelect }>;

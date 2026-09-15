@@ -9,6 +9,7 @@ import {
   type MutantListWhere,
 } from "@/server/repositories/mutant-repository";
 import { projectRepository } from "@/server/repositories/project-repository";
+import { referenceLabel } from "@/domain/kill-claims/reference";
 
 export type ExportFormat = "json" | "csv";
 
@@ -50,6 +51,9 @@ export function toExportRow(m: MutantExportRecord, baseUrl: string): ExportRow {
     createdAt: m.createdAt.toISOString(),
     updatedAt: m.updatedAt.toISOString(),
     url: `${baseUrl}/mutants/${m.id}`,
+    killClaims: m.killClaims.length
+      ? m.killClaims.map((c) => `${referenceLabel(c.kind, c.reference)} (${c.status})`).join(" | ")
+      : null,
   };
 }
 

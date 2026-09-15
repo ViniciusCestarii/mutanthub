@@ -79,6 +79,9 @@ and **service → GitHubClient (live or mock) → cache**.
   environment, OS, compiler, observed result, notes, logs). Text only.
 - **Validation** – a reproduction attempt by another user: `SURVIVED`, `KILLED`,
   `COULD_NOT_REPRODUCE`, plus command/environment/notes and an optional `killingTestRef`.
+- **KillClaim** – a structured claim that a pull request, commit or test kills the mutant, with
+  the checks MutantHub ran against GitHub (PR state, verification commit, whether the original
+  code still applies) and its verification status. Reproductions can be attached to a claim.
 - **Comment** – Markdown discussion (sanitized on render).
 - **MutantStatusHistory** – append-only log of every review/mutation transition and every
   submission edit (who, from, to, when, comment).

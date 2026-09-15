@@ -8,7 +8,7 @@ import { CodeBlock } from "@/components/code/code-block";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { absoluteDate, absoluteDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { ValidationForm } from "./validation-form";
+import { ValidationForm, type ClaimOption } from "./validation-form";
 
 interface ReproductionSectionProps {
   mutantId: number;
@@ -17,6 +17,7 @@ interface ReproductionSectionProps {
   signedIn: boolean;
   readOnly?: boolean;
   compact?: boolean;
+  claims?: ClaimOption[];
 }
 
 const CONSENSUS_CLASS: Record<ValidationSummary["consensus"], string> = {
@@ -29,6 +30,7 @@ const CONSENSUS_CLASS: Record<ValidationSummary["consensus"], string> = {
 
 /** Reproduction summary, the "record a reproduction" form and the validation timeline. */
 export function ReproductionSection({
+  claims = [],
   mutantId,
   summary,
   validations,
@@ -60,7 +62,9 @@ export function ReproductionSection({
           </ul>
         </div>
 
-        {readOnly ? null : <ValidationForm mutantId={mutantId} signedIn={signedIn} />}
+        {readOnly ? null : (
+          <ValidationForm mutantId={mutantId} signedIn={signedIn} claims={claims} />
+        )}
 
         <div>
           <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">

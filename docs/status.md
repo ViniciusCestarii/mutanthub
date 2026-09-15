@@ -36,6 +36,10 @@ What is implemented and what is planned.
 - Global mutant list with filters, per-project list, dashboard, public profiles, global search,
   activity feed, settings page.
 - Public read-only JSON API with OpenAPI description; rate limiting; sanitized Markdown; size limits.
+- Killing-test claims: "PR #123 / commit / test path kills this mutant" as a structured claim,
+  checked against GitHub (pull request state, merge commit, whether the original code still
+  exists there), verified by two reproductions at that commit or a reviewer verdict, reported
+  in the pull request check run, and reflected in the mutant's outcome and history.
 - Dataset exports: streamed JSON and CSV over the list filters, per-mutant patch download, and
   frozen, hashed, citable snapshots published by administrators from the Dataset page.
 - Seed data, unit/API tests, end-to-end workflow tests.
@@ -45,7 +49,8 @@ What is implemented and what is planned.
 - DOI minting for snapshots (for example through Zenodo).
 - Editing/deleting comments from the UI (the service layer already supports comment edits).
 - Automatic rebasing of mutants to newer commits.
-- Isolated execution runners (Docker) for automatic reproduction, CI and mutation-tool imports.
+- Isolated execution runners (Docker) for automatic reproduction, CI and mutation-tool imports,
+  including machine verification of killing-test claims.
 - GitHub App integration, pull-request links, CLI tooling.
 - LLM-assisted analysis and automated equivalent-mutant detection.
 - Email delivery for notifications, subscriptions to projects, gamification beyond the profile

@@ -34,6 +34,8 @@ export interface ExportRow {
   createdAt: string;
   updatedAt: string;
   url: string;
+  /** Structured kill claims, e.g. "PR #123 (VERIFIED) | commit abc1234 (CLAIMED)". */
+  killClaims: string | null;
 }
 
 export const EXPORT_COLUMNS: ReadonlyArray<keyof ExportRow> = [
@@ -67,6 +69,7 @@ export const EXPORT_COLUMNS: ReadonlyArray<keyof ExportRow> = [
   "createdAt",
   "updatedAt",
   "url",
+  "killClaims",
 ];
 
 /** Hard cap on rows per export request or snapshot. */

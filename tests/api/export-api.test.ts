@@ -56,6 +56,7 @@ function record(id: number): MutantExportRecord {
       { result: "SURVIVED", killingTestRef: null },
       { result: "KILLED", killingTestRef: "tests/unit/unit1300.c" },
     ],
+    killClaims: [{ kind: "PULL_REQUEST", reference: "15908", status: "CLAIMED" }],
   };
 }
 
@@ -103,6 +104,7 @@ describe("bulk export routes", () => {
       killingTestRefs: "tests/unit/unit1300.c",
       testCommand: "make test-ci",
       url: "http://localhost:3000/mutants/1",
+      killClaims: "PR #15908 (CLAIMED)",
     });
     expect(res.headers.get("x-export-limit")).toBe("10000");
   });

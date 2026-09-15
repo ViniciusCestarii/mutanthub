@@ -147,7 +147,12 @@ export const reviewService = {
   },
 
   /** Changes the scientific outcome (e.g. SURVIVED -> KILLED, or -> EQUIVALENT). */
-  async changeMutationStatus(principal: Principal | null, rawInput: unknown) {
+  async changeMutationStatus(
+    principal: Principal | null,
+    rawInput: unknown,
+    /** `system: true` when the platform applies a community-verified outcome (no reviewer). */
+    opts: { system?: boolean } = {},
+  ) {
     if (!principal) throw forbidden("Sign in to continue");
     const parsed = changeMutationStatusSchema.safeParse(rawInput);
     if (!parsed.success) throw validationError("Invalid status change", fieldErrors(parsed.error));
@@ -155,9 +160,11 @@ export const reviewService = {
 
     const mutant = await mutantRepository.findListItem(input.mutantId);
     if (!mutant) throw notFound("Mutant");
-    if (!canChangeMutationStatus(principal, mutant.project.id))
-      throw forbidden("Only reviewers can classify mutants");
-    await enforceRateLimit({ ...RATE_LIMITS.review, action: "review", subject: principal.id });
+    if (!opts.system) {
+      if (!canChangeMutationStatus(principal, mutant.project.id))
+        throw forbidden("Only reviewers can classify mutants");
+      await enforceRateLimit({ ...RATE_LIMITS.review, action: "review", subject: principal.id });
+    }
     if (!canTransitionMutation(mutant.mutationStatus, input.status))
       throw validationError(`Mutant is already ${input.status.toLowerCase()}`);
 

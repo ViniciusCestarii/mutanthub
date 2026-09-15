@@ -97,6 +97,9 @@ enum ActivityType {
   MUTANT_EDITED
   MUTANT_WITHDRAWN
   MUTANT_RESUBMITTED
+  KILL_CLAIMED
+  KILL_VERIFIED
+  KILL_REFUTED
 }
 
 // ---------------------------------------------------------------------------
@@ -128,6 +131,8 @@ model User {
   triggered     Notification[]        @relation("NotificationActor")
   auditEntries  AuditLog[]
   snapshots     DatasetSnapshot[]
+  killClaims    KillClaim[]           @relation("KillClaimClaimedBy")
+  killVerdicts  KillClaim[]           @relation("KillClaimResolvedBy")
   addedProjects Project[]             @relation("ProjectAddedBy")
 
   @@index([globalRole])
@@ -251,6 +256,7 @@ model Mutant {
   statusHistory MutantStatusHistory[]
   activities    Activity[]
   notifications Notification[]
+  killClaims    KillClaim[]
 
   @@index([projectId, filePath])
   @@index([revisionId, filePath, startLine])
@@ -298,6 +304,11 @@ model Validation {
   notes          String?
   /// Reference to the test that kills the mutant (URL, PR, or test path). Text only.
   killingTestRef String?
+  /// Commit the reproduction was run against, when it differs from the mutant's revision.
+  commitSha      String?
+  /// Set when the reproduction verifies (or refutes) a kill claim.
+  killClaimId    String?
+  killClaim      KillClaim?       @relation(fields: [killClaimId], references: [id], onDelete: SetNull)
   createdAt      DateTime         @default(now())
 
   mutant Mutant @relation(fields: [mutantId], references: [id], onDelete: Cascade)
@@ -446,9 +457,10 @@ model PullRequest {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
-  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  revisions Revision[]
-  mutants   Mutant[]
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  revisions  Revision[]
+  mutants    Mutant[]
+  killClaims KillClaim[]
 
   @@unique([projectId, number])
   @@index([projectId, state, updatedAt])
@@ -474,4 +486,62 @@ model DatasetSnapshot {
   createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
+}
+
+enum KillClaimKind {
+  PULL_REQUEST
+  COMMIT
+  TEST_PATH
+}
+
+enum KillClaimStatus {
+  CLAIMED
+  VERIFIED
+  REFUTED
+  STALE
+}
+
+/// Whether the mutant's original code still exists at the verification commit.
+enum KillClaimApplies {
+  UNKNOWN
+  APPLIES
+  MOVED
+  NOT_FOUND
+}
+
+/// "PR #123 adds a test that kills this mutant": a structured, verifiable claim.
+model KillClaim {
+  id              String            @id @default(cuid())
+  mutantId        Int
+  claimedById     String
+  kind            KillClaimKind
+  /// PR number, commit SHA or test path, depending on `kind`.
+  reference       String
+  note            String?
+  status          KillClaimStatus   @default(CLAIMED)
+  pullRequestId   String?
+  /// Snapshot of the PR state at the last refresh.
+  prState         PullRequestState?
+  prTouchesTests  Boolean?
+  /// Commit at which the claim is verified: merge commit, PR head, or the given commit.
+  verifyCommitSha String?
+  applies         KillClaimApplies  @default(UNKNOWN)
+  /// Line where the original code was found at the verification commit.
+  appliesLine     Int?
+  resolvedById    String?
+  resolvedAt      DateTime?
+  resolutionNote  String?
+  lastCheckedAt   DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  mutant      Mutant       @relation(fields: [mutantId], references: [id], onDelete: Cascade)
+  claimedBy   User         @relation("KillClaimClaimedBy", fields: [claimedById], references: [id], onDelete: Cascade)
+  resolvedBy  User?        @relation("KillClaimResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+  pullRequest PullRequest? @relation(fields: [pullRequestId], references: [id], onDelete: SetNull)
+  validations Validation[]
+
+  @@index([mutantId, createdAt])
+  @@index([pullRequestId])
+  @@index([status])
 }

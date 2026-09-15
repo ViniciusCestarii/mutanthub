@@ -28,6 +28,8 @@ export const validationRepository = {
     environment: string | null;
     notes: string | null;
     killingTestRef: string | null;
+    commitSha: string | null;
+    killClaimId: string | null;
   }) {
     return prisma.$transaction(async (tx) => {
       const validation = await tx.validation.create({
@@ -39,6 +41,8 @@ export const validationRepository = {
           environment: data.environment,
           notes: data.notes,
           killingTestRef: data.killingTestRef,
+          commitSha: data.commitSha,
+          killClaimId: data.killClaimId,
         },
         include: { user: { select: userSummarySelect } },
       });
@@ -121,6 +125,36 @@ export const commentRepository = {
 };
 
 export const activityRepository = {
+  /** Records an activity and fans out notifications in one transaction (for non-mutant-row events). */
+  recordEvent(data: {
+    type: ActivityType;
+    actorId: string | null;
+    projectId: string;
+    mutantId: number;
+    payload?: Prisma.InputJsonValue;
+    /** Free text shown in the notification body/title. */
+    detail?: string | null;
+  }) {
+    return prisma.$transaction(async (tx) => {
+      const activity = await tx.activity.create({
+        data: {
+          type: data.type,
+          actorId: data.actorId,
+          projectId: data.projectId,
+          mutantId: data.mutantId,
+          payload: data.payload,
+        },
+      });
+      await notificationRepository.recordInTx(tx, {
+        type: data.type,
+        actorId: data.actorId,
+        mutantId: data.mutantId,
+        detail: data.detail ?? null,
+      });
+      return activity;
+    });
+  },
+
   listRecent(opts: {
     projectId?: string;
     actorId?: string;

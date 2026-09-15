@@ -53,6 +53,8 @@ export interface PullRequestInfo {
   baseSha: string;
   headRef: string;
   headSha: string;
+  /** Merge commit on the base branch once merged; null otherwise. */
+  mergeCommitSha: string | null;
   htmlUrl: string;
   changedFiles: number;
   additions: number;

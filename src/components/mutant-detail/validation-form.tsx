@@ -15,9 +15,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
+export interface ClaimOption {
+  id: string;
+  label: string;
+  commitSha: string | null;
+}
+
 interface ValidationFormProps {
   mutantId: number;
   signedIn: boolean;
+  /** Open kill claims this reproduction can verify. */
+  claims?: ClaimOption[];
 }
 
 const RESULT_CLASS: Record<ValidationResult, string> = {
@@ -26,10 +34,12 @@ const RESULT_CLASS: Record<ValidationResult, string> = {
   COULD_NOT_REPRODUCE: "data-[checked=true]:border-foreground/40 data-[checked=true]:bg-muted",
 };
 
-export function ValidationForm({ mutantId, signedIn }: ValidationFormProps) {
+export function ValidationForm({ mutantId, signedIn, claims = [] }: ValidationFormProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [result, setResult] = useState<ValidationResult>("SURVIVED");
+  const [claimId, setClaimId] = useState("");
+  const [commitSha, setCommitSha] = useState("");
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(
     async (prev: Awaited<ReturnType<typeof addValidationAction>> | null, formData: FormData) => {
@@ -80,6 +90,51 @@ export function ValidationForm({ mutantId, signedIn }: ValidationFormProps) {
   return (
     <form ref={formRef} action={formAction} className="space-y-3" data-testid="validation-form">
       <input type="hidden" name="mutantId" value={mutantId} />
+      {claims.length > 0 ? (
+        <div className="space-y-1">
+          <Label htmlFor={`val-claim-${mutantId}`} className="text-xs">
+            Verifies a killing-test claim
+          </Label>
+          <select
+            id={`val-claim-${mutantId}`}
+            name="killClaimId"
+            value={claimId}
+            onChange={(e) => {
+              setClaimId(e.target.value);
+              const chosen = claims.find((c) => c.id === e.target.value);
+              setCommitSha(chosen?.commitSha ?? "");
+            }}
+            className="border-input bg-background h-8 w-full rounded-md border px-2 text-xs"
+            data-testid="validation-claim"
+          >
+            <option value="">No, this reproduces the original submission</option>
+            {claims.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-muted-foreground text-[11px]">
+            Run the mutant at the claim&apos;s commit: a killed result verifies the claim, a
+            survived result refutes it.
+          </p>
+        </div>
+      ) : null}
+      <div className="space-y-1">
+        <Label htmlFor={`val-commit-${mutantId}`} className="text-xs">
+          Commit tested (optional)
+        </Label>
+        <Input
+          id={`val-commit-${mutantId}`}
+          name="commitSha"
+          value={commitSha}
+          onChange={(e) => setCommitSha(e.target.value)}
+          placeholder="Leave empty for the mutant's own revision"
+          className="font-mono text-xs"
+          data-testid="validation-commit"
+        />
+        {errors.commitSha ? <p className="text-destructive text-xs">{errors.commitSha}</p> : null}
+      </div>
       <fieldset className="space-y-1.5">
         <legend className="text-xs font-medium">Observed result</legend>
         <div className="grid grid-cols-3 gap-1.5">

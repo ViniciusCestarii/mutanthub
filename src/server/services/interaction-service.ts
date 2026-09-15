@@ -11,6 +11,7 @@ import {
 } from "@/server/repositories/interaction-repository";
 import { mutantRepository } from "@/server/repositories/mutant-repository";
 import { pullRequestService } from "./pull-request-service";
+import { killClaimService } from "./kill-claim-service";
 
 /** Validations (reproductions) and comments. */
 export const interactionService = {
@@ -30,6 +31,10 @@ export const interactionService = {
       subject: principal.id,
     });
 
+    // A reproduction may verify a kill claim; the claim must belong to this mutant.
+    const claim = input.killClaimId
+      ? await killClaimService.getForMutant(input.killClaimId, mutant.id)
+      : null;
     const validation = await validationRepository.create({
       mutantId: mutant.id,
       projectId: mutant.project.id,
@@ -39,7 +44,10 @@ export const interactionService = {
       environment: input.environment ?? null,
       notes: input.notes ?? null,
       killingTestRef: input.killingTestRef ?? null,
+      commitSha: input.commitSha ?? claim?.verifyCommitSha ?? null,
+      killClaimId: claim?.id ?? null,
     });
+    if (claim) await killClaimService.reevaluate(claim.id);
     void pullRequestService.refreshForMutant(mutant);
     return validation;
   },

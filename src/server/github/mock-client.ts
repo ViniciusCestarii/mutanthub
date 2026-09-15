@@ -180,6 +180,8 @@ function toPullRequestInfo(mock: MockRepo, pull: MockPullRequest): PullRequestIn
     baseSha: base.sha,
     headRef: pull.headRef,
     headSha: head.sha,
+    // Fixture PRs merge into the newer commit, so it doubles as the merge commit.
+    mergeCommitSha: pull.state === "MERGED" ? head.sha : null,
     htmlUrl: `${mock.info.htmlUrl}/pull/${pull.number}`,
     changedFiles: pull.files.length,
     additions: pull.files.reduce((n, f) => n + f.additions, 0),

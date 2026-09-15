@@ -30,24 +30,25 @@ Downloads send the hash in the `X-Dataset-Sha256` header and are cacheable forev
 JSON exports are an array of objects; CSV exports have one header row and RFC 4180 quoting
 (multi-line diffs and commands are quoted, quotes are doubled). Columns, in order:
 
-| Column                                                                                   | Meaning                                                                                      |
-| ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `id`                                                                                     | Mutant id; `url` links to its page                                                           |
-| `repository`, `language`                                                                 | GitHub repository and primary language                                                       |
-| `commit`                                                                                 | Exact commit the mutant was recorded against; line numbers refer to it                       |
-| `pullRequest`                                                                            | Pull request number when the mutant was scoped to one, else empty                            |
-| `file`, `startLine`, `endLine`                                                           | Location in that commit                                                                      |
-| `title`, `description`                                                                   | Contributor's summary and optional notes (Markdown)                                          |
-| `mutationOperator`                                                                       | One of the operator categories (relational, arithmetic, constant, ...)                       |
-| `originalCode`, `mutatedCode`, `diff`                                                    | The change; `diff` is a unified patch                                                        |
-| `reviewStatus`                                                                           | Moderation: `PENDING`, `NEEDS_INFORMATION`, `APPROVED`, `REJECTED`, `DUPLICATE`, `WITHDRAWN` |
-| `mutationStatus`                                                                         | Outcome: `UNKNOWN`, `SURVIVED`, `KILLED`, `EQUIVALENT`, `INVALID`                            |
-| `observedResult`                                                                         | What the submitter observed (`SURVIVED`, `KILLED`, `UNKNOWN`)                                |
-| `buildCommand`, `testCommand`, `fuzzCommand`, `environment`                              | Latest submission evidence, verbatim text; never executed by MutantHub                       |
-| `reproductions`, `reproducedSurvived`, `reproducedKilled`, `reproducedCouldNotReproduce` | Reproduction attempts by other contributors                                                  |
-| `killingTestRefs`                                                                        | Test paths, PRs or commits reported to kill the mutant, `                                    | `-separated |
-| `contributor`                                                                            | GitHub login of the submitter                                                                |
-| `createdAt`, `updatedAt`                                                                 | ISO 8601 timestamps                                                                          |
+| Column                                                                                   | Meaning                                                                                                                                   |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                                                                     | Mutant id; `url` links to its page                                                                                                        |
+| `repository`, `language`                                                                 | GitHub repository and primary language                                                                                                    |
+| `commit`                                                                                 | Exact commit the mutant was recorded against; line numbers refer to it                                                                    |
+| `pullRequest`                                                                            | Pull request number when the mutant was scoped to one, else empty                                                                         |
+| `file`, `startLine`, `endLine`                                                           | Location in that commit                                                                                                                   |
+| `title`, `description`                                                                   | Contributor's summary and optional notes (Markdown)                                                                                       |
+| `mutationOperator`                                                                       | One of the operator categories (relational, arithmetic, constant, ...)                                                                    |
+| `originalCode`, `mutatedCode`, `diff`                                                    | The change; `diff` is a unified patch                                                                                                     |
+| `reviewStatus`                                                                           | Moderation: `PENDING`, `NEEDS_INFORMATION`, `APPROVED`, `REJECTED`, `DUPLICATE`, `WITHDRAWN`                                              |
+| `mutationStatus`                                                                         | Outcome: `UNKNOWN`, `SURVIVED`, `KILLED`, `EQUIVALENT`, `INVALID`                                                                         |
+| `observedResult`                                                                         | What the submitter observed (`SURVIVED`, `KILLED`, `UNKNOWN`)                                                                             |
+| `buildCommand`, `testCommand`, `fuzzCommand`, `environment`                              | Latest submission evidence, verbatim text; never executed by MutantHub                                                                    |
+| `reproductions`, `reproducedSurvived`, `reproducedKilled`, `reproducedCouldNotReproduce` | Reproduction attempts by other contributors                                                                                               |
+| `killingTestRefs`                                                                        | Test paths, PRs or commits reported to kill the mutant, `                                                                                 | `-separated |
+| `contributor`                                                                            | GitHub login of the submitter                                                                                                             |
+| `createdAt`, `updatedAt`                                                                 | ISO 8601 timestamps                                                                                                                       |
+| `killClaims`                                                                             | Structured killing-test claims, e.g. `PR #123 (VERIFIED) \| commit abc1234 (CLAIMED)`; statuses `CLAIMED`, `VERIFIED`, `REFUTED`, `STALE` |
 
 New columns are only ever appended. Cells starting with `=` or `@` are prefixed with a quote to
 defuse spreadsheet formulas; cells starting with `+` or `-` (diffs, code) are left intact, so
@@ -62,6 +63,12 @@ open CSV files as text in spreadsheet software.
 - Conflicting reproductions show up as both `reproducedSurvived` and `reproducedKilled` being
   non-zero; the platform deliberately does not pick a winner.
 - Per-mutant patches are available at `/api/mutants/<id>/patch` for reproduction.
+- A `VERIFIED` kill claim means two independent reproductions killed the mutant at the claim's
+  commit (or a reviewer confirmed it); the mutant's `mutationStatus` becomes `KILLED` at that
+  point, with the claim referenced in its history.
+- A `VERIFIED` kill claim means two independent reproductions killed the mutant at the claim's
+  commit (or a reviewer confirmed it); the mutant's `mutationStatus` becomes `KILLED` at that
+  point, with the claim referenced in its history.
 
 ## Citing
 

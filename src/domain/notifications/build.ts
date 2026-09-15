@@ -74,6 +74,12 @@ export function notificationTitle(event: NotificationEvent): string {
       return `${actor} changed the outcome of ${ref}`;
     case "COMMENT_ADDED":
       return `${actor} commented on ${ref}`;
+    case "KILL_CLAIMED":
+      return `${actor} reported a killing test for ${ref}${event.detail ? ` (${event.detail})` : ""}`;
+    case "KILL_VERIFIED":
+      return `A killing test for ${ref} was verified${event.detail ? ` (${event.detail})` : ""}`;
+    case "KILL_REFUTED":
+      return `A killing-test claim for ${ref} was refuted${event.detail ? ` (${event.detail})` : ""}`;
     default:
       return `${actor} updated ${ref}`;
   }
@@ -100,6 +106,7 @@ export function buildNotifications(event: NotificationEvent, p: Participants): N
 function notificationBody(event: NotificationEvent): string | null {
   const mutantTitle = event.mutant.title.trim();
   if (event.type === "MUTANT_REPRODUCED") return mutantTitle || null;
+  if (event.type.startsWith("KILL_")) return mutantTitle || null;
   const detail = event.detail?.trim();
   if (!detail) return mutantTitle || null;
   const excerpt = detail.length > 200 ? `${detail.slice(0, 197)}...` : detail;

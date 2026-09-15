@@ -42,6 +42,10 @@ This document records the security posture of MutantHub after the pre-release se
 | Manage members, activate/deactivate, refresh   | project maintainer or admin (`projectService.*`)                              |
 | Remove / demote the last maintainer            | refused (`assertNotLastMaintainer`)                                           |
 | Notifications                                  | owner only (`notificationService.*`, `findOwned`)                             |
+| Track / resync a pull request                  | signed in, project active (`pullRequestService.track`)                        |
+| Report / re-check a killing-test claim         | signed in (`killClaimService.create` / `refresh`)                             |
+| Verify or refute a claim                       | project reviewer, maintainer or admin (`killClaimService.resolve`)            |
+| Check runs on GitHub                           | posted only by the app installation token; never blocking                     |
 | Mocked sign-in                                 | only when `AUTH_MOCK` is enabled outside production                           |
 
 Rules are pure functions in `src/domain/auth/permissions.ts` and are unit-tested in

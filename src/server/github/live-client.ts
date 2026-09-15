@@ -59,6 +59,7 @@ interface PullPayload {
   user: { login: string } | null;
   state: "open" | "closed";
   merged_at: string | null;
+  merge_commit_sha: string | null;
   html_url: string;
   changed_files: number;
   additions: number;
@@ -258,6 +259,7 @@ export function createLiveGitHubClient(auth: GitHubTokenProvider): GitHubClient 
           baseSha: data.base.sha,
           headRef: data.head.ref,
           headSha: data.head.sha,
+          mergeCommitSha: data.merged_at ? data.merge_commit_sha : null,
           htmlUrl: data.html_url,
           changedFiles: data.changed_files,
           additions: data.additions,

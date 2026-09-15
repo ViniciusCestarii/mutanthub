@@ -40,11 +40,19 @@ const ACTIVE_REVIEW: ReviewStatus[] = ["PENDING", "NEEDS_INFORMATION", "APPROVED
  * Only mutants on lines the PR changed count towards the headline; the rest
  * are listed as context. Wording never treats a surviving mutant as a defect.
  */
+export interface CheckClaim {
+  mutantId: number;
+  mutantTitle: string;
+  status: "CLAIMED" | "VERIFIED" | "REFUTED" | "STALE";
+  applies: "UNKNOWN" | "APPLIES" | "MOVED" | "NOT_FOUND";
+}
+
 export function buildCheckSummary(
   pr: { number: number; headSha: string },
   mutants: CheckMutant[],
   changed: ChangedRanges,
   baseUrl: string,
+  claims: CheckClaim[] = [],
 ): CheckSummary {
   const relevant = mutants.filter((m) => ACTIVE_REVIEW.includes(m.reviewStatus));
   const onDiff = relevant.filter((m) => mutantTouchesDiff(m, changed));
@@ -98,6 +106,27 @@ export function buildCheckSummary(
     lines.push(
       `${olderHead} of the listed mutants refer to an earlier head of this pull request; line numbers may have moved.`,
     );
+  }
+  if (claims.length > 0) {
+    lines.push("");
+    lines.push("### Killing-test claims");
+    lines.push("");
+    lines.push(
+      "This pull request is reported to add tests that kill the following mutants. " +
+        "A claim counts only once reproduced at the merge commit or confirmed by a reviewer.",
+    );
+    lines.push("");
+    for (const c of claims) {
+      const note =
+        c.applies === "NOT_FOUND"
+          ? " (original code no longer present)"
+          : c.applies === "MOVED"
+            ? " (original code moved)"
+            : "";
+      lines.push(
+        `- [#${c.mutantId}](${baseUrl}/mutants/${c.mutantId}) ${escapePipes(c.mutantTitle)}: **${c.status}**${note}`,
+      );
+    }
   }
 
   return {
