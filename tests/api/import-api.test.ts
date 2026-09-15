@@ -21,6 +21,7 @@ vi.mock("@/server/services/import-service", () => ({
 }));
 
 import { POST } from "@/app/api/projects/[owner]/[repo]/import/route";
+import { sameOrigin } from "@/server/api/csrf";
 import { forbidden } from "@/lib/errors";
 
 const params = Promise.resolve({ owner: "curl", repo: "curl" });
@@ -42,6 +43,40 @@ function upload(mode: string, headers: Record<string, string> = {}, body = "[]")
     headers: { origin: "http://localhost:3000", "sec-fetch-site": "same-origin", ...headers },
   });
 }
+
+describe("sameOrigin", () => {
+  const req = (headers: Record<string, string>, url = "http://app:3000/api/x") =>
+    new Request(url, { method: "POST", headers });
+
+  it("accepts the browser origin when it matches the proxied host", () => {
+    expect(
+      sameOrigin(
+        req({
+          origin: "https://mutants.example.org",
+          "x-forwarded-host": "mutants.example.org",
+          host: "app:3000",
+        }),
+      ),
+    ).toBe(true);
+    expect(sameOrigin(req({ origin: "http://localhost:8080", host: "localhost:8080" }))).toBe(true);
+  });
+
+  it("accepts the configured public URL and rejects everything else", () => {
+    process.env.AUTH_URL = "https://mutants.example.org";
+    try {
+      expect(sameOrigin(req({ origin: "https://mutants.example.org", host: "app:3000" }))).toBe(
+        true,
+      );
+      expect(sameOrigin(req({ origin: "https://evil.example", host: "app:3000" }))).toBe(false);
+      expect(
+        sameOrigin(req({ origin: "https://mutants.example.org", "sec-fetch-site": "cross-site" })),
+      ).toBe(false);
+      expect(sameOrigin(req({ origin: "not a url", host: "app:3000" }))).toBe(false);
+    } finally {
+      delete process.env.AUTH_URL;
+    }
+  });
+});
 
 describe("POST /api/projects/:owner/:repo/import", () => {
   beforeEach(() => {

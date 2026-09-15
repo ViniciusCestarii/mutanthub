@@ -4,6 +4,7 @@ import { projectService } from "@/server/services/project-service";
 import { importService } from "@/server/services/import-service";
 import { IMPORT_MAX_BYTES } from "@/domain/import/schema";
 import { isAppError } from "@/lib/errors";
+import { sameOrigin } from "@/server/api/csrf";
 
 export const dynamic = "force-dynamic";
 
@@ -67,17 +68,4 @@ export async function POST(
 
 function optionalString(value: FormDataEntryValue | null): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-/** Browser-enforced CSRF check for the upload endpoint (no Next.js action origin check here). */
-function sameOrigin(request: Request): boolean {
-  const site = request.headers.get("sec-fetch-site");
-  if (site && site !== "same-origin" && site !== "none") return false;
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try {
-    return new URL(origin).host === new URL(request.url).host;
-  } catch {
-    return false;
-  }
 }

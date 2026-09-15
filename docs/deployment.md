@@ -77,7 +77,9 @@ docker compose -f docker-compose.prod.yml exec -T postgres \
 - Health: `GET /api/health` returns `200` when the database answers and reports Redis and the
   GitHub auth mode (`app`, `token` or `anonymous`).
 - Reverse proxy: terminate TLS in front of the app (Caddy, nginx, Traefik) and forward
-  `X-Forwarded-For`, which the rate limiter uses. The app sets its own security headers.
+  `X-Forwarded-For`, which the rate limiter uses, and `X-Forwarded-Host` or the original `Host`,
+  which the upload endpoints compare with the browser's `Origin` (the configured `AUTH_URL` is
+  accepted too). The app sets its own security headers.
 - Scaling: `docker compose -f docker-compose.prod.yml up -d --scale app=3` behind your proxy; the
   rate limiter and GitHub cache are shared through Redis.
 - Port: the app listens on `3000`; override the host port with `APP_PORT`.
