@@ -10,6 +10,7 @@ import type {
   StatusKind,
 } from "@/generated/prisma/enums";
 import { userSummarySelect } from "./user-repository";
+import { notificationRepository } from "./notification-repository";
 
 /** Fields shown in lists (mutant tables, review queue rows, dashboards). */
 export const mutantListSelect = {
@@ -266,6 +267,11 @@ export const mutantRepository = {
           payload: { title: data.title, filePath: data.filePath, startLine: data.startLine },
         },
       });
+      await notificationRepository.recordInTx(tx, {
+        type: "MUTANT_SUBMITTED",
+        actorId: data.createdById,
+        mutantId: created.id,
+      });
       return created;
     });
   },
@@ -323,6 +329,12 @@ export const mutantRepository = {
               comment: params.comment,
             },
           },
+        });
+        await notificationRepository.recordInTx(tx, {
+          type: params.activityType,
+          actorId: params.changedById,
+          mutantId: params.mutantId,
+          detail: params.comment,
         });
       }
       return updated;
@@ -404,6 +416,12 @@ export const mutantRepository = {
           mutantId: params.mutantId,
           payload: { changedFields: params.changedFields, reason: params.editReason },
         },
+      });
+      await notificationRepository.recordInTx(tx, {
+        type: "MUTANT_EDITED",
+        actorId: params.editedById,
+        mutantId: params.mutantId,
+        detail: params.editReason ?? summary,
       });
       return updated;
     });

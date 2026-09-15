@@ -198,6 +198,8 @@ and **service → GitHubClient (live or mock) → cache**.
   submission edit (who, from, to, when, comment).
 - **Activity** – feed events (submitted, approved, rejected, reproduced, killed, equivalent,
   comment added, ...).
+- **Notification** – per-recipient inbox entry derived from an activity event (recipient rules
+  live in `src/domain/notifications/build.ts`).
 
 ### Duplicate detection
 
@@ -307,7 +309,8 @@ It covers: mocked login → open project → navigate to a file → select a lin
 reviewer opens the queue and approves → another user records a reproduction → a user comments →
 the history shows every step. A second suite covers the submission lifecycle (edit, needs
 information, resubmit, withdraw, killing-test reference), and a third covers project settings
-(members, roles, last-maintainer protection, deactivation).
+(members, roles, last-maintainer protection, deactivation), and a fourth covers notifications
+(submission notice to reviewers, decision and comment notices to the submitter, mark-as-read).
 
 ## Continuous integration
 
@@ -363,6 +366,10 @@ throwaway value set in the workflow.
   pending submission (`WITHDRAWN` review status). Every step lands in the history.
 - Reproductions (validations) with an optional killing-test reference (test path, PR or commit
   URL), and comments by any signed-in user.
+- In-app notifications: submitters and everyone who commented or reproduced a mutant hear about
+  review decisions, reproductions, classifications and comments; reviewers hear about new,
+  edited and resubmitted submissions. Header bell with unread count, `/notifications` inbox,
+  mark-as-read. Written in the same transaction as the activity feed.
 - Project overview with statistics, most affected files, top contributors, recent activity.
 - Global mutant list with filters, per-project list, dashboard, public profiles, global search,
   activity feed, settings page.
@@ -378,4 +385,5 @@ throwaway value set in the workflow.
 - Isolated execution runners (Docker) for automatic reproduction, CI and mutation-tool imports.
 - GitHub App integration, pull-request links, CLI tooling.
 - LLM-assisted analysis and automated equivalent-mutant detection.
-- Notifications, subscriptions, gamification beyond the profile counters.
+- Email delivery for notifications, subscriptions to projects, gamification beyond the profile
+  counters.

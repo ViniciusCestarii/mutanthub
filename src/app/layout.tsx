@@ -8,6 +8,8 @@ import { SearchShortcut } from "@/components/layout/search-shortcut";
 import { getCurrentUser } from "@/server/auth/session";
 import { canAccessReviewQueue } from "@/domain/auth/permissions";
 import { reviewService } from "@/server/services/review-service";
+import { notificationService } from "@/server/services/notification-service";
+import { relativeTime } from "@/lib/format";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -22,7 +24,10 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   const isReviewer = canAccessReviewQueue(user);
-  const reviewCount = isReviewer ? await reviewService.countQueue(user) : 0;
+  const [reviewCount, notifications] = await Promise.all([
+    isReviewer ? reviewService.countQueue(user) : Promise.resolve(0),
+    notificationService.getSummary(user),
+  ]);
 
   return (
     <html
@@ -51,6 +56,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               }
               isReviewer={isReviewer}
               reviewCount={reviewCount}
+              notifications={{
+                unread: notifications.unread,
+                latest: notifications.latest.map((n) => ({
+                  id: n.id,
+                  title: n.title,
+                  body: n.body,
+                  read: Boolean(n.readAt),
+                  createdAtLabel: relativeTime(n.createdAt),
+                  actor: n.actor
+                    ? { githubUsername: n.actor.githubUsername, avatarUrl: n.actor.avatarUrl }
+                    : null,
+                })),
+              }}
             />
             <div className="flex flex-1 flex-col">{children}</div>
             <Toaster position="bottom-right" richColors closeButton />

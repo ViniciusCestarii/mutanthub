@@ -26,6 +26,7 @@ export const routes = {
   reviewItem: (id: number) => `/review?selected=${id}`,
   user: (username: string) => `/users/${username}`,
   settings: () => "/settings",
+  notifications: () => "/notifications",
   search: (q: string) => `/search?q=${encodeURIComponent(q)}`,
   signIn: (callbackUrl?: string) =>
     `/signin${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`,

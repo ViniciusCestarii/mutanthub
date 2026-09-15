@@ -6,14 +6,19 @@ import { ThemeToggle } from "./theme-toggle";
 import { UserMenu, type HeaderUser } from "./user-menu";
 import { NavLinks } from "./nav-links";
 import { MobileNav } from "./mobile-nav";
+import {
+  NotificationsMenu,
+  type HeaderNotification,
+} from "@/components/notifications/notifications-menu";
 
 interface AppHeaderProps {
   user: HeaderUser | null;
   isReviewer: boolean;
   reviewCount: number;
+  notifications: { unread: number; latest: HeaderNotification[] };
 }
 
-export function AppHeader({ user, isReviewer, reviewCount }: AppHeaderProps) {
+export function AppHeader({ user, isReviewer, reviewCount, notifications }: AppHeaderProps) {
   return (
     <header className="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
       <div className="mx-auto flex h-12 max-w-[1600px] items-center gap-3 px-3 sm:px-4">
@@ -35,6 +40,9 @@ export function AppHeader({ user, isReviewer, reviewCount }: AppHeaderProps) {
               </kbd>
             </Link>
           </Button>
+          {user ? (
+            <NotificationsMenu unread={notifications.unread} latest={notifications.latest} />
+          ) : null}
           <ThemeToggle />
           {user ? (
             <UserMenu user={user} />

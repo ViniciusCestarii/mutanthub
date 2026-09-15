@@ -22,6 +22,7 @@ import type {
 import { MOCK_REPOS, headCommit } from "../src/server/github/fixtures/manifest";
 import { computeFingerprint } from "../src/domain/mutants/fingerprint";
 import { generateUnifiedDiff } from "../src/domain/mutants/diff";
+import { buildNotifications } from "../src/domain/notifications/build";
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -1005,6 +1006,7 @@ function daysAgo(days: number, hourOffset = 0): Date {
 
 async function main() {
   console.log("Clearing existing data...");
+  await prisma.notification.deleteMany();
   await prisma.activity.deleteMany();
   await prisma.mutantStatusHistory.deleteMany();
   await prisma.comment.deleteMany();
@@ -1389,6 +1391,9 @@ async function main() {
     }
   }
 
+  console.log("Deriving notifications from activity...");
+  await seedNotifications();
+
   const totals = {
     users: await prisma.user.count(),
     projects: await prisma.project.count(),
@@ -1397,8 +1402,90 @@ async function main() {
     comments: await prisma.comment.count(),
     history: await prisma.mutantStatusHistory.count(),
     activity: await prisma.activity.count(),
+    notifications: await prisma.notification.count(),
   };
   console.log("Seed complete:", totals);
+}
+
+/**
+ * Replays the seeded activity through the same recipient rules the app uses,
+ * so inboxes look realistic. Notifications older than three days are marked read.
+ */
+async function seedNotifications() {
+  const activities = await prisma.activity.findMany({
+    where: { mutantId: { not: null } },
+    orderBy: { createdAt: "asc" },
+    include: {
+      actor: { select: { id: true, githubUsername: true } },
+      mutant: {
+        select: {
+          id: true,
+          title: true,
+          createdById: true,
+          projectId: true,
+          project: { select: { displayName: true } },
+          comments: { select: { userId: true, createdAt: true } },
+          validations: { select: { userId: true, createdAt: true } },
+        },
+      },
+    },
+  });
+  const members = await prisma.projectMember.findMany({
+    where: { role: { in: ["REVIEWER", "MAINTAINER"] } },
+    select: { projectId: true, userId: true },
+  });
+  const readBefore = daysAgo(3);
+  let created = 0;
+  for (const a of activities) {
+    if (!a.mutant) continue;
+    const payload = (a.payload ?? {}) as Record<string, unknown>;
+    const detail =
+      typeof payload.comment === "string"
+        ? payload.comment
+        : typeof payload.excerpt === "string"
+          ? payload.excerpt
+          : typeof payload.result === "string"
+            ? payload.result
+            : null;
+    const drafts = buildNotifications(
+      {
+        type: a.type,
+        actorId: a.actorId,
+        actorUsername: a.actor?.githubUsername ?? null,
+        mutant: { id: a.mutant.id, title: a.mutant.title, createdById: a.mutant.createdById },
+        projectName: a.mutant.project.displayName,
+        detail,
+      },
+      {
+        // Only people who had already participated when the event happened.
+        commenterIds: a.mutant.comments
+          .filter((c) => c.createdAt < a.createdAt)
+          .map((c) => c.userId),
+        validatorIds: a.mutant.validations
+          .filter((v) => v.createdAt < a.createdAt)
+          .map((v) => v.userId),
+        reviewerIds: members
+          .filter((m) => m.projectId === a.mutant!.projectId)
+          .map((m) => m.userId),
+      },
+    );
+    if (!drafts.length) continue;
+    const result = await prisma.notification.createMany({
+      data: drafts.map((d) => ({
+        userId: d.userId,
+        type: a.type,
+        actorId: a.actorId,
+        mutantId: a.mutant!.id,
+        projectId: a.mutant!.projectId,
+        title: d.title,
+        body: d.body,
+        createdAt: a.createdAt,
+        readAt: a.createdAt < readBefore ? new Date(a.createdAt.getTime() + 3600_000) : null,
+      })),
+    });
+    created += result.count;
+  }
+  console.log(`  ${created} notifications`);
 }
 
 main()

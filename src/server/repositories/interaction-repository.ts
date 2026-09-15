@@ -3,6 +3,7 @@ import { prisma } from "@/server/db/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import type { ActivityType, ValidationResult } from "@/generated/prisma/enums";
 import { userSummarySelect } from "./user-repository";
+import { notificationRepository } from "./notification-repository";
 
 /**
  * Validations, comments and the activity feed. Grouped together because they
@@ -50,6 +51,12 @@ export const validationRepository = {
           payload: { result: data.result, killingTestRef: data.killingTestRef },
         },
       });
+      await notificationRepository.recordInTx(tx, {
+        type: "MUTANT_REPRODUCED",
+        actorId: data.userId,
+        mutantId: data.mutantId,
+        detail: data.result,
+      });
       return validation;
     });
   },
@@ -86,6 +93,12 @@ export const commentRepository = {
           mutantId: data.mutantId,
           payload: { excerpt: data.body.slice(0, 140) },
         },
+      });
+      await notificationRepository.recordInTx(tx, {
+        type: "COMMENT_ADDED",
+        actorId: data.userId,
+        mutantId: data.mutantId,
+        detail: data.body,
       });
       return comment;
     });
