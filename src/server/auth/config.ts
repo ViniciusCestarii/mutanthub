@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
 import { env } from "@/server/env";
 import { userRepository } from "@/server/repositories/user-repository";
+import { checkRateLimit } from "@/server/infra/rate-limit";
 
 /**
  * Auth.js configuration.
@@ -44,11 +45,23 @@ function buildProviders(): NextAuthConfig["providers"] {
         id: "mock",
         name: "Mock login",
         credentials: { username: { label: "GitHub username", type: "text" } },
-        async authorize(credentials) {
+        async authorize(credentials, request) {
           const username = String(credentials?.username ?? "")
             .trim()
             .toLowerCase();
           if (!/^[a-z0-9-]{1,39}$/.test(username)) return null;
+          // The mock provider can create accounts; cap attempts per client address.
+          const ip =
+            request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+            request.headers.get("x-real-ip") ||
+            "unknown";
+          const limit = await checkRateLimit({
+            action: "mock-sign-in",
+            subject: ip,
+            limit: 60,
+            windowMs: 10 * 60 * 1000,
+          });
+          if (!limit.ok) return null;
           const user = await userRepository.findOrCreateMockUser(username);
           return {
             id: user.id,

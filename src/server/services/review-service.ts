@@ -23,6 +23,7 @@ import {
 } from "@/lib/validation/schemas";
 import { mutantRepository, type MutantListItem } from "@/server/repositories/mutant-repository";
 import { projectRepository } from "@/server/repositories/project-repository";
+import { auditRepository } from "@/server/repositories/audit-repository";
 import { mutantService } from "./mutant-service";
 
 export interface ReviewQueueItem extends MutantListItem {
@@ -121,7 +122,7 @@ export const reviewService = {
       duplicateOfId = null;
     }
 
-    return mutantRepository.changeStatus({
+    const updated = await mutantRepository.changeStatus({
       mutantId: mutant.id,
       kind: "REVIEW",
       previousValue: mutant.reviewStatus,
@@ -132,6 +133,15 @@ export const reviewService = {
       projectId: mutant.project.id,
       duplicateOfId,
     });
+    await auditRepository.record({
+      actorId: principal.id,
+      action: "MUTANT_REVIEWED",
+      projectId: mutant.project.id,
+      targetType: "mutant",
+      targetId: String(mutant.id),
+      metadata: { from: mutant.reviewStatus, to: newStatus, duplicateOfId: duplicateOfId ?? null },
+    });
+    return updated;
   },
 
   /** Changes the scientific outcome (e.g. SURVIVED -> KILLED, or -> EQUIVALENT). */
@@ -149,7 +159,7 @@ export const reviewService = {
     if (!canTransitionMutation(mutant.mutationStatus, input.status))
       throw validationError(`Mutant is already ${input.status.toLowerCase()}`);
 
-    return mutantRepository.changeStatus({
+    const updated = await mutantRepository.changeStatus({
       mutantId: mutant.id,
       kind: "MUTATION",
       previousValue: mutant.mutationStatus,
@@ -159,6 +169,15 @@ export const reviewService = {
       activityType: MUTATION_STATUS_ACTIVITY[input.status],
       projectId: mutant.project.id,
     });
+    await auditRepository.record({
+      actorId: principal.id,
+      action: "MUTANT_CLASSIFIED",
+      projectId: mutant.project.id,
+      targetType: "mutant",
+      targetId: String(mutant.id),
+      metadata: { from: mutant.mutationStatus, to: input.status },
+    });
+    return updated;
   },
 
   getDetailForReview(principal: Principal | null, id: number) {

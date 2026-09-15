@@ -41,6 +41,9 @@ test.describe("project settings", () => {
     const row = page.locator(`[data-testid="member-row"][data-username="${NEW_USER}"]`);
     await expect(row).toBeVisible();
     await expect(row.getByTestId("member-role")).toHaveValue("REVIEWER");
+    // Privileged actions land in the audit trail.
+    await expect(page.getByTestId("audit-trail")).toContainText("added a member");
+    await expect(page.getByTestId("audit-trail")).toContainText(`@${NEW_USER}`);
 
     // Adding the same person twice is rejected with a clear message.
     await page.getByTestId("add-member-username").fill(NEW_USER);

@@ -126,6 +126,7 @@ model User {
   activities    Activity[]
   notifications Notification[]        @relation("NotificationRecipient")
   triggered     Notification[]        @relation("NotificationActor")
+  auditEntries  AuditLog[]
   addedProjects Project[]             @relation("ProjectAddedBy")
 
   @@index([globalRole])
@@ -367,4 +368,36 @@ model Notification {
 
   @@index([userId, readAt, createdAt])
   @@index([mutantId])
+}
+
+enum AuditAction {
+  MEMBER_ADDED
+  MEMBER_ROLE_CHANGED
+  MEMBER_REMOVED
+  PROJECT_ACTIVATED
+  PROJECT_DEACTIVATED
+  PROJECT_REFRESHED
+  PROJECT_REGISTERED
+  MUTANT_REVIEWED
+  MUTANT_CLASSIFIED
+}
+
+/// Append-only record of privileged actions (membership, project state, moderation).
+model AuditLog {
+  id         String      @id @default(cuid())
+  actorId    String?
+  action     AuditAction
+  projectId  String?
+  targetType String
+  targetId   String
+  /// Structured details (previous/new role, statuses, usernames). Never contains secrets.
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime    @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId])
 }

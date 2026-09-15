@@ -12,6 +12,7 @@ import {
   setProjectActiveSchema,
 } from "@/lib/validation/schemas";
 import { userRepository } from "@/server/repositories/user-repository";
+import { auditRepository } from "@/server/repositories/audit-repository";
 import { getGitHubClient } from "@/server/github";
 import { isGitHubError, type CommitInfo } from "@/server/github/types";
 import { projectRepository } from "@/server/repositories/project-repository";
@@ -82,6 +83,14 @@ export const projectService = {
     });
     // The registrant becomes a maintainer so the project has someone who can review.
     await projectRepository.upsertMember(project.id, principal.id, "MAINTAINER");
+    await auditRepository.record({
+      actorId: principal.id,
+      action: "PROJECT_REGISTERED",
+      projectId: project.id,
+      targetType: "project",
+      targetId: project.id,
+      metadata: { repository: `${project.githubOwner}/${project.githubRepository}` },
+    });
     return project;
   },
 
@@ -161,11 +170,12 @@ export const projectService = {
   async getSettings(principal: Principal | null, project: Project) {
     if (!canManageProject(principal, project.id))
       throw forbidden("Only maintainers can manage this project");
-    const [members, maintainers] = await Promise.all([
+    const [members, maintainers, audit] = await Promise.all([
       projectRepository.listMembers(project.id),
       projectRepository.countMaintainers(project.id),
+      auditRepository.listForProject(project.id),
     ]);
-    return { members, maintainers };
+    return { members, maintainers, audit };
   },
 
   /** Adds a member by GitHub username. Users who never signed in are created as placeholders. */
@@ -187,6 +197,14 @@ export const projectService = {
     if (existing)
       throw conflict(`@${username} is already a ${existing.role.toLowerCase()} of this project`);
     await projectRepository.upsertMember(projectId, user.id, role);
+    await auditRepository.record({
+      actorId: principal!.id,
+      action: "MEMBER_ADDED",
+      projectId,
+      targetType: "member",
+      targetId: user.id,
+      metadata: { username: user.githubUsername, role },
+    });
     return { userId: user.id, username: user.githubUsername, role };
   },
 
@@ -200,7 +218,16 @@ export const projectService = {
     if (!member) throw notFound("Member");
     if (member.role === role) return member;
     if (member.role === "MAINTAINER") await assertNotLastMaintainer(projectId);
-    return projectRepository.upsertMember(projectId, userId, role);
+    const updated = await projectRepository.upsertMember(projectId, userId, role);
+    await auditRepository.record({
+      actorId: principal!.id,
+      action: "MEMBER_ROLE_CHANGED",
+      projectId,
+      targetType: "member",
+      targetId: userId,
+      metadata: { from: member.role, to: role },
+    });
+    return updated;
   },
 
   async removeMember(principal: Principal | null, rawInput: unknown) {
@@ -213,6 +240,14 @@ export const projectService = {
     if (!member) throw notFound("Member");
     if (member.role === "MAINTAINER") await assertNotLastMaintainer(projectId);
     await projectRepository.removeMember(projectId, userId);
+    await auditRepository.record({
+      actorId: principal!.id,
+      action: "MEMBER_REMOVED",
+      projectId,
+      targetType: "member",
+      targetId: userId,
+      metadata: { role: member.role },
+    });
     return { userId };
   },
 
@@ -239,13 +274,22 @@ export const projectService = {
       if (isGitHubError(e) && e.kind === "NOT_FOUND") throw notFound("Repository on GitHub");
       throw new AppError("UPSTREAM", "GitHub is unavailable right now. Try again later.");
     }
-    return projectRepository.update(projectId, {
+    const updated = await projectRepository.update(projectId, {
       displayName: info.fullName,
       description: info.description,
       defaultBranch: info.defaultBranch,
       language: info.language,
       githubRepositoryId: info.id,
     });
+    await auditRepository.record({
+      actorId: principal!.id,
+      action: "PROJECT_REFRESHED",
+      projectId,
+      targetType: "project",
+      targetId: projectId,
+      metadata: { defaultBranch: info.defaultBranch, language: info.language },
+    });
+    return updated;
   },
 
   async setFollowing(principal: Principal | null, projectId: string, following: boolean) {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ThemeProvider } from "next-themes";
+import { ThemeProvider } from "@/components/layout/theme-provider";
+import { THEME_BOOTSTRAP_SCRIPT } from "@/components/layout/theme-script";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppHeader } from "@/components/layout/app-header";
@@ -10,6 +11,8 @@ import { canAccessReviewQueue } from "@/domain/auth/permissions";
 import { reviewService } from "@/server/services/review-service";
 import { notificationService } from "@/server/services/notification-service";
 import { relativeTime } from "@/lib/format";
+import { headers } from "next/headers";
+import Script from "next/script";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -23,6 +26,8 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
+  // Per-request CSP nonce from src/proxy.ts, applied to the inline theme bootstrap script.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   const isReviewer = canAccessReviewQueue(user);
   const [reviewCount, notifications] = await Promise.all([
     isReviewer ? reviewService.countQueue(user) : Promise.resolve(0),
@@ -36,12 +41,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="bg-background text-foreground flex min-h-full flex-col">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
+        {/* Injected by Next before hydration (outside React reconciliation) with the CSP nonce. */}
+        <Script id="theme-bootstrap" strategy="beforeInteractive" nonce={nonce}>
+          {THEME_BOOTSTRAP_SCRIPT}
+        </Script>
+        <ThemeProvider>
           <TooltipProvider delayDuration={200}>
             <AppHeader
               user={

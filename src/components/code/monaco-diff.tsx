@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/layout/theme-provider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { defineMonacoThemes, monacoThemeFor } from "./monaco-theme";
 

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { MockSignInForm } from "@/components/auth/mock-sign-in-form";
 import { routes } from "@/lib/routes";
+import { safeRelativePath } from "@/lib/safe-redirect";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -94,8 +95,7 @@ export default async function SignInPage({
 }
 
 function safeCallback(url: string | undefined): string {
-  if (!url || !url.startsWith("/") || url.startsWith("//")) return routes.dashboard();
-  return url;
+  return safeRelativePath(url, routes.dashboard());
 }
 
 function describeRole(

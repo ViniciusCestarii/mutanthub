@@ -12,6 +12,7 @@ import { ErrorState } from "@/components/shared/error-states";
 import { StatusPill } from "@/components/mutants/status-badge";
 import { MemberManager } from "@/components/projects/member-manager";
 import { ProjectAdminControls } from "@/components/projects/project-admin-controls";
+import { AuditTrail } from "@/components/projects/audit-trail";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,7 @@ export default async function ProjectSettingsPage({ params }: { params: Params }
     );
   }
 
-  const { members, maintainers } = await projectService.getSettings(user, project);
+  const { members, maintainers, audit } = await projectService.getSettings(user, project);
 
   return (
     <PageContainer className="space-y-4" wide>
@@ -114,6 +115,9 @@ export default async function ProjectSettingsPage({ params }: { params: Params }
               repo={project.githubRepository}
               isActive={project.isActive}
             />
+          </Section>
+          <Section title="Recent changes" description="Audit trail of privileged actions">
+            <AuditTrail entries={audit} />
           </Section>
         </aside>
       </div>

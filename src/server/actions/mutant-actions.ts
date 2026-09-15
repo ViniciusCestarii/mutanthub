@@ -7,6 +7,8 @@ import { interactionService } from "@/server/services/interaction-service";
 import { reviewService } from "@/server/services/review-service";
 import { routes } from "@/lib/routes";
 import { formToObject, runAction, type ActionResult } from "./result";
+import { headers } from "next/headers";
+import { enforceRateLimit } from "@/server/infra/rate-limit";
 
 export interface SubmitMutantResult {
   mutantId: number;
@@ -46,6 +48,15 @@ export async function previewDuplicatesAction(input: {
 }): Promise<ActionResult<DuplicatePreviewItem[]>> {
   return runAction(async () => {
     if (!input.originalCode.trim() || !input.mutatedCode.trim()) return [];
+    // Public, read-only, but it runs text searches: cap it per user or client address.
+    const user = await getCurrentUser();
+    const requestHeaders = await headers();
+    const subject =
+      user?.id ??
+      requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      requestHeaders.get("x-real-ip") ??
+      "anonymous";
+    await enforceRateLimit({ action: "preview-duplicates", subject, limit: 120, windowMs: 60_000 });
     const result = await mutantService.previewDuplicates(input);
     return [
       ...result.exact.map((m) => ({

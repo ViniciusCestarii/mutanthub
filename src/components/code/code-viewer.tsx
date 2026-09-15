@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/layout/theme-provider";
 import type { Monaco, OnMount } from "@monaco-editor/react";
 import type { editor as MonacoEditorNs } from "monaco-editor";
 import { Skeleton } from "@/components/ui/skeleton";

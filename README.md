@@ -218,6 +218,9 @@ milestone; historical references are preserved as-is.
 
 ### Security
 
+See [`docs/SECURITY.md`](docs/SECURITY.md) for the permission matrix, the Content Security
+Policy, the audit trail and the deployer checklist. In short:
+
 - Commands, patches and logs are stored and displayed as text. Nothing is executed.
 - Markdown is rendered with `marked` and sanitized with `sanitize-html` (no scripts, no event
   handlers, safe link attributes).
@@ -226,6 +229,12 @@ milestone; historical references are preserved as-is.
   but the server-side checks are authoritative.
 - Server Actions include Next.js' built-in origin checks (CSRF protection); Auth.js protects its
   own routes. Public API routes are read-only.
+- `src/proxy.ts` sets a nonce-based Content Security Policy (scripts use `'strict-dynamic'`;
+  Monaco loads from jsDelivr and runs `blob:` workers), HSTS in production, `nosniff`,
+  `X-Frame-Options: DENY`, a strict referrer policy and a restrictive permissions policy.
+- Privileged actions (membership, project activation, reviews and classifications) are written
+  to an append-only `AuditLog`, visible to maintainers on the project settings page.
+- Post-login redirects accept same-origin paths only.
 - Zod validates all inputs with size limits (`src/lib/validation/limits.ts`).
 - A rate limiter protects submissions, validations, comments, reviews, project registration and
   the public API (per user or per IP). It uses an in-memory sliding window by default and a
