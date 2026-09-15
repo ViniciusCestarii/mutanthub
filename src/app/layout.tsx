@@ -21,7 +21,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: { default: "MutantHub", template: "%s · MutantHub" },
   description:
-    "A collaborative platform for discovering, reproducing and investigating surviving software mutants.",
+    "A collaborative platform for discovering, reproducing and investigating surviving software mutants. Use whichever mutation testing tool you want.",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
