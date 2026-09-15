@@ -8,17 +8,21 @@ export const routes = {
     owner: string,
     repo: string,
     path?: string,
-    opts?: { ref?: string; line?: number },
+    opts?: { ref?: string; line?: number; pr?: number },
   ) => {
     const base = `/projects/${owner}/${repo}/code${path ? `/${path}` : ""}`;
     const params = new URLSearchParams();
     if (opts?.ref) params.set("ref", opts.ref);
+    if (opts?.pr) params.set("pr", String(opts.pr));
     const query = params.toString();
     const hash = opts?.line ? `#L${opts.line}` : "";
     return `${base}${query ? `?${query}` : ""}${hash}`;
   },
   projectMutants: (owner: string, repo: string) => `/projects/${owner}/${repo}/mutants`,
   projectSettings: (owner: string, repo: string) => `/projects/${owner}/${repo}/settings`,
+  projectPulls: (owner: string, repo: string) => `/projects/${owner}/${repo}/pulls`,
+  projectPull: (owner: string, repo: string, number: number) =>
+    `/projects/${owner}/${repo}/pulls/${number}`,
   mutants: () => "/mutants",
   mutant: (id: number) => `/mutants/${id}`,
   mutantEdit: (id: number) => `/mutants/${id}/edit`,
@@ -35,6 +39,8 @@ export const routes = {
     repo: (owner: string, repo: string) => `https://github.com/${owner}/${repo}`,
     commit: (owner: string, repo: string, sha: string) =>
       `https://github.com/${owner}/${repo}/commit/${sha}`,
+    pull: (owner: string, repo: string, number: number) =>
+      `https://github.com/${owner}/${repo}/pull/${number}`,
     file: (owner: string, repo: string, sha: string, path: string, line?: number) =>
       `https://github.com/${owner}/${repo}/blob/${sha}/${path}${line ? `#L${line}` : ""}`,
     user: (username: string) => `https://github.com/${username}`,

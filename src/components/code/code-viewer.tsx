@@ -29,6 +29,8 @@ export interface CodeViewerProps {
   onIndicatorClick?: (line: number) => void;
   /** Line to reveal when the editor first mounts. */
   initialLine?: number | null;
+  /** Inclusive 1-based ranges to mark as changed (pull request mode). */
+  changedRanges?: Array<[number, number]>;
   className?: string;
 }
 
@@ -47,6 +49,7 @@ export function CodeViewer({
   onSelectLine,
   onIndicatorClick,
   initialLine,
+  changedRanges,
   className,
 }: CodeViewerProps) {
   const { resolvedTheme } = useTheme();
@@ -63,6 +66,17 @@ export function CodeViewer({
     const monaco = monacoRef.current;
     if (!editor || !monaco) return;
     const decorations: MonacoEditorNs.IModelDeltaDecoration[] = [];
+    for (const [start, end] of changedRanges ?? []) {
+      decorations.push({
+        range: new monaco.Range(start, 1, end, 1),
+        options: {
+          isWholeLine: true,
+          className: "mh-line-changed",
+          linesDecorationsClassName: "mh-changed-margin",
+          hoverMessage: { value: "Changed in this pull request" },
+        },
+      });
+    }
     for (const [lineStr, count] of Object.entries(mutantCounts)) {
       const line = Number(lineStr);
       if (!count || line < 1) continue;
@@ -91,7 +105,7 @@ export function CodeViewer({
     }
     if (!decorationsRef.current) decorationsRef.current = editor.createDecorationsCollection();
     decorationsRef.current.set(decorations);
-  }, [mutantCounts, selectedLine]);
+  }, [mutantCounts, selectedLine, changedRanges]);
 
   useEffect(() => {
     applyDecorations();

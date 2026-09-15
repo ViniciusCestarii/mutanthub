@@ -51,6 +51,8 @@ export interface SuggestMutantDrawerProps {
   selectedLine: number;
   /** Called after a successful submission so the parent can refresh indicators. */
   onSubmitted?: (mutantId: number) => void;
+  /** Scopes the submission to a tracked pull request (pull request mode). */
+  pullRequestNumber?: number | null;
 }
 
 const OBSERVED_OPTIONS: Array<{
@@ -117,6 +119,7 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
     lines,
     selectedLine,
     onSubmitted,
+    pullRequestNumber = null,
   } = props;
   const router = useRouter();
   const [state, formAction, isPending] = useActionState<
@@ -310,6 +313,9 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
             >
               <input type="hidden" name="projectId" value={project.id} />
               <input type="hidden" name="commitSha" value={commitSha} />
+              {pullRequestNumber ? (
+                <input type="hidden" name="pullRequestNumber" value={pullRequestNumber} />
+              ) : null}
               <input type="hidden" name="filePath" value={filePath} />
               <input type="hidden" name="startLine" value={selectedLine} />
               <input type="hidden" name="mutationOperator" value={operator} />

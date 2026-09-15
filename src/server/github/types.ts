@@ -44,6 +44,30 @@ export interface FileContent {
   htmlUrl: string;
 }
 
+export interface PullRequestInfo {
+  number: number;
+  title: string;
+  authorLogin: string | null;
+  state: "OPEN" | "CLOSED" | "MERGED";
+  baseRef: string;
+  baseSha: string;
+  headRef: string;
+  headSha: string;
+  htmlUrl: string;
+  changedFiles: number;
+  additions: number;
+  deletions: number;
+}
+
+export interface PullRequestFile {
+  path: string;
+  status: "added" | "modified" | "removed" | "renamed" | "copied" | "changed" | "unchanged";
+  additions: number;
+  deletions: number;
+  /** Added or modified line ranges in the head commit (inclusive, 1-based). */
+  changedRanges: Array<[number, number]>;
+}
+
 export type GitHubErrorKind =
   | "NOT_FOUND"
   | "RATE_LIMITED"
@@ -80,4 +104,7 @@ export interface GitHubClient {
   /** Lists a directory at a given ref. `path` is "" for the root. */
   getTree(owner: string, repo: string, ref: string, path: string): Promise<TreeEntry[]>;
   getFile(owner: string, repo: string, ref: string, path: string): Promise<FileContent>;
+  getPullRequest(owner: string, repo: string, number: number): Promise<PullRequestInfo>;
+  /** Changed files with head-side line ranges (GitHub caps this at 3000 files). */
+  getPullRequestFiles(owner: string, repo: string, number: number): Promise<PullRequestFile[]>;
 }

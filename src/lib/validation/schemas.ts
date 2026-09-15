@@ -118,6 +118,8 @@ export const submitMutantSchema = z
     filePath: filePathSchema,
     startLine: z.coerce.number().int().min(1),
     endLine: z.coerce.number().int().min(1),
+    /** Present when the mutant is submitted from the code browser's pull request mode. */
+    pullRequestNumber: optionalNumber(z.coerce.number().int().positive()),
     ...mutationFields,
     ...evidenceFields,
   })
@@ -223,6 +225,11 @@ export const changeMemberRoleSchema = z.object({
 export const removeMemberSchema = z.object({
   projectId: z.string().min(1),
   userId: z.string().min(1),
+});
+
+export const trackPullRequestSchema = z.object({
+  projectId: z.string().min(1),
+  number: z.coerce.number().int().positive().max(9_999_999),
 });
 
 export const setProjectActiveSchema = z.object({

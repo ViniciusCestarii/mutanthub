@@ -4,6 +4,7 @@ import GitHub from "next-auth/providers/github";
 import { env } from "@/server/env";
 import { userRepository } from "@/server/repositories/user-repository";
 import { checkRateLimit } from "@/server/infra/rate-limit";
+import { isBootstrapAdmin } from "@/lib/admin-usernames";
 
 /**
  * Auth.js configuration.
@@ -63,6 +64,7 @@ function buildProviders(): NextAuthConfig["providers"] {
           });
           if (!limit.ok) return null;
           const user = await userRepository.findOrCreateMockUser(username);
+          await applyBootstrapAdmin(user);
           return {
             id: user.id,
             name: user.displayName,
@@ -78,6 +80,17 @@ function buildProviders(): NextAuthConfig["providers"] {
   }
 
   return providers;
+}
+
+/** Promotes users listed in ADMIN_GITHUB_USERNAMES to ADMIN the first time they sign in. */
+async function applyBootstrapAdmin(user: {
+  id: string;
+  githubUsername: string;
+  globalRole: string;
+}) {
+  if (user.globalRole === "ADMIN") return;
+  if (!isBootstrapAdmin(user.githubUsername, env.adminGithubUsernames)) return;
+  await userRepository.promoteToAdmin(user.id);
 }
 
 export const authConfig: NextAuthConfig = {
@@ -97,6 +110,7 @@ export const authConfig: NextAuthConfig = {
           avatarUrl: user.image ?? null,
           email: user.email ?? null,
         });
+        await applyBootstrapAdmin(dbUser);
         user.internalId = dbUser.id;
       }
       return true;

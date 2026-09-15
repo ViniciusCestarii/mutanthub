@@ -1,5 +1,13 @@
 import { createHmac } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+// The route looks projects up for pull_request events; keep the test database-free.
+vi.mock("@/server/repositories/project-repository", () => ({
+  projectRepository: { findBySlug: vi.fn(async () => null) },
+}));
+vi.mock("@/server/services/pull-request-service", () => ({
+  pullRequestService: { sync: vi.fn() },
+}));
 
 const SECRET = "whsec_test";
 
@@ -38,8 +46,20 @@ describe("POST /api/github/webhook", () => {
   it("answers pings and ignores unrelated events", async () => {
     const { POST } = await import("@/app/api/github/webhook/route");
     expect((await (await POST(signed('{"zen":"x"}', "ping"))).json()).pong).toBe(true);
-    const res = await POST(signed('{"action":"opened"}', "pull_request"));
-    expect((await res.json()).ignored).toBe("pull_request");
+    const res = await POST(signed('{"action":"opened"}', "issues"));
+    expect((await res.json()).ignored).toBe("issues");
+    // Pull request events for repositories that are not registered are acknowledged and skipped.
+    const pr = await POST(
+      signed(
+        JSON.stringify({
+          action: "opened",
+          number: 1,
+          repository: { full_name: "nobody/nothing" },
+        }),
+        "pull_request",
+      ),
+    );
+    expect((await pr.json()).ignored).toBe("unregistered repository");
   });
 
   it("invalidates cached installation lookups for the affected repositories", async () => {

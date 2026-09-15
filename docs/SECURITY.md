@@ -73,6 +73,7 @@ settings page. Entries are never deleted by the application.
 
 - `AUTH_SECRET` signs sessions; rotate it to invalidate every session.
 - `GITHUB_TOKEN` only needs public repository read access. OAuth scopes are `read:user user:email`.
+  The GitHub App needs Contents, Metadata and Pull requests (read) plus Checks (write).
 - `AUTH_MOCK=true` is refused in production unless `AUTH_MOCK_ALLOW_PRODUCTION=true` is set
   explicitly (staging demos only).
 - The health endpoint reports component status only, never configuration values.

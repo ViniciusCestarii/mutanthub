@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bug, ExternalLink, FileWarning, FolderTree, GitCommitHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import { MutantsPanel } from "./mutants-panel";
 import type {
   BrowserCommit,
   BrowserProject,
+  BrowserPullRequest,
   BrowserRevision,
   BrowserTarget,
   TreeCache,
@@ -34,6 +36,8 @@ export interface CodeWorkspaceProps {
   treeCache: TreeCache;
   revisions: BrowserRevision[];
   signedIn: boolean;
+  /** Present in pull request mode. */
+  pullRequest?: BrowserPullRequest | null;
 }
 
 function lineFromHash(hash: string): number | null {
@@ -79,6 +83,7 @@ export function CodeWorkspace({
   treeCache,
   revisions,
   signedIn,
+  pullRequest = null,
 }: CodeWorkspaceProps) {
   const [selectedLine, selectLine] = useSelectedLine();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -92,6 +97,11 @@ export function CodeWorkspace({
     [content],
   );
   const language = languageForPath(path);
+  const lineInDiff =
+    selectedLine != null &&
+    (pullRequest?.ranges ?? []).some(
+      ([start, end]) => selectedLine >= start && selectedLine <= end,
+    );
 
   const mutantCounts = useMemo(() => {
     const counts: Record<number, number> = {};
@@ -137,6 +147,11 @@ export function CodeWorkspace({
       }}
       signedIn={signedIn}
       signInHref={routes.signIn(currentUrl)}
+      pullRequest={
+        pullRequest
+          ? { number: pullRequest.number, fileInDiff: pullRequest.fileInDiff, lineInDiff }
+          : null
+      }
     />
   ) : (
     <div className="text-muted-foreground p-3 text-xs">Open a file to see its mutants.</div>
@@ -209,7 +224,21 @@ export function CodeWorkspace({
             </span>
           ) : null}
         </span>
-        {!commit.isHead ? (
+        {pullRequest ? (
+          <span
+            className="ml-auto rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-px text-emerald-700 dark:text-emerald-300"
+            data-testid="pull-request-notice"
+          >
+            <Link
+              href={routes.projectPull(project.owner, project.repo, pullRequest.number)}
+              className="font-medium hover:underline"
+            >
+              PR #{pullRequest.number}
+            </Link>
+            {pullRequest.atHead ? " · changed lines highlighted" : " · not at the PR head"}
+            {!pullRequest.fileInDiff ? " · this file is not part of the diff" : ""}
+          </span>
+        ) : !commit.isHead ? (
           <span
             className="ml-auto rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-px text-amber-700 dark:text-amber-300"
             data-testid="older-revision-notice"
@@ -250,6 +279,7 @@ export function CodeWorkspace({
                 onSelectLine={selectLine}
                 onIndicatorClick={() => setMutantsPanelOpen(true)}
                 initialLine={selectedLine}
+                changedRanges={pullRequest?.atHead ? pullRequest.ranges : undefined}
               />
               <EditorStatusBar
                 path={file.path}
@@ -340,6 +370,7 @@ export function CodeWorkspace({
           language={language}
           lines={lines}
           selectedLine={selectedLine}
+          pullRequestNumber={pullRequest?.atHead ? pullRequest.number : null}
         />
       ) : null}
     </div>

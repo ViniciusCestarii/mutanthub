@@ -25,6 +25,8 @@ interface MutantsPanelProps {
   onSuggest: () => void;
   signedIn: boolean;
   signInHref: string;
+  /** Pull request mode: whether the selected line is part of the PR diff. */
+  pullRequest?: { number: number; fileInDiff: boolean; lineInDiff: boolean } | null;
 }
 
 function MutantItem({
@@ -96,6 +98,7 @@ export function MutantsPanel({
   onSuggest,
   signedIn,
   signInHref,
+  pullRequest = null,
 }: MutantsPanelProps) {
   const onLine = selectedLine
     ? mutants.filter((m) => m.startLine <= selectedLine && selectedLine <= m.endLine)
@@ -125,6 +128,26 @@ export function MutantsPanel({
             >
               {selectedLineText ?? ""}
             </pre>
+            {pullRequest ? (
+              pullRequest.lineInDiff ? (
+                <p
+                  className="mt-1.5 text-[11px] text-emerald-700 dark:text-emerald-300"
+                  data-testid="line-in-diff"
+                >
+                  Changed in PR #{pullRequest.number}. A mutant here will be scoped to the pull
+                  request.
+                </p>
+              ) : (
+                <p
+                  className="mt-1.5 text-[11px] text-amber-700 dark:text-amber-300"
+                  data-testid="line-outside-diff"
+                >
+                  {pullRequest.fileInDiff
+                    ? `Not changed by PR #${pullRequest.number}. The mutant will still be recorded against the PR but outside its diff.`
+                    : `This file is not part of PR #${pullRequest.number}'s diff.`}
+                </p>
+              )
+            ) : null}
             {signedIn ? (
               <Button
                 className="mt-2 w-full"

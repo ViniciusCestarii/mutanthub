@@ -11,6 +11,8 @@ export type {
   FileContent,
   GitHubClient,
   GitHubErrorKind,
+  PullRequestFile,
+  PullRequestInfo,
   RepositoryInfo,
   TreeEntry,
 } from "./types";

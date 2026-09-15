@@ -1,12 +1,15 @@
 import "server-only";
 import { defaultTtlMs, getOrSet } from "./cache";
 import type { GitHubTokenProvider } from "./app-auth";
+import { changedRangesFromPatch } from "@/domain/pull-requests/diff-ranges";
 import {
   GitHubError,
   MAX_FILE_BYTES,
   type CommitInfo,
   type FileContent,
   type GitHubClient,
+  type PullRequestFile,
+  type PullRequestInfo,
   type RepositoryInfo,
   type TreeEntry,
 } from "./types";
@@ -49,6 +52,30 @@ interface ContentEntryPayload {
   encoding?: string;
   content?: string;
 }
+
+interface PullPayload {
+  number: number;
+  title: string;
+  user: { login: string } | null;
+  state: "open" | "closed";
+  merged_at: string | null;
+  html_url: string;
+  changed_files: number;
+  additions: number;
+  deletions: number;
+  base: { ref: string; sha: string };
+  head: { ref: string; sha: string };
+}
+
+interface PullFilePayload {
+  filename: string;
+  status: PullRequestFile["status"];
+  additions: number;
+  deletions: number;
+  patch?: string;
+}
+
+const PR_TTL_MS = 60 * 1000;
 
 async function request<T>(url: string, token?: string): Promise<T> {
   const headers: Record<string, string> = {
@@ -213,6 +240,53 @@ export function createLiveGitHubClient(auth: GitHubTokenProvider): GitHubClient 
           throw new GitHubError("INVALID", `${path} is not a regular file`);
         }
         return decodeFile(data, path);
+      });
+    },
+
+    getPullRequest(owner, repo, number): Promise<PullRequestInfo> {
+      return getOrSet(`gh:pull:${owner}/${repo}:${number}`, PR_TTL_MS, async () => {
+        const data = await request<PullPayload>(
+          `${repoUrl(owner, repo)}/pulls/${number}`,
+          await auth.getToken(owner, repo),
+        );
+        return {
+          number: data.number,
+          title: data.title,
+          authorLogin: data.user?.login ?? null,
+          state: data.merged_at ? "MERGED" : data.state === "open" ? "OPEN" : "CLOSED",
+          baseRef: data.base.ref,
+          baseSha: data.base.sha,
+          headRef: data.head.ref,
+          headSha: data.head.sha,
+          htmlUrl: data.html_url,
+          changedFiles: data.changed_files,
+          additions: data.additions,
+          deletions: data.deletions,
+        };
+      });
+    },
+
+    getPullRequestFiles(owner, repo, number): Promise<PullRequestFile[]> {
+      return getOrSet(`gh:pull-files:${owner}/${repo}:${number}`, PR_TTL_MS, async () => {
+        const token = await auth.getToken(owner, repo);
+        const files: PullRequestFile[] = [];
+        for (let page = 1; page <= 30; page += 1) {
+          const batch = await request<PullFilePayload[]>(
+            `${repoUrl(owner, repo)}/pulls/${number}/files?per_page=100&page=${page}`,
+            token,
+          );
+          for (const f of batch) {
+            files.push({
+              path: f.filename,
+              status: f.status,
+              additions: f.additions,
+              deletions: f.deletions,
+              changedRanges: f.status === "removed" ? [] : changedRangesFromPatch(f.patch),
+            });
+          }
+          if (batch.length < 100) break;
+        }
+        return files;
       });
     },
   };

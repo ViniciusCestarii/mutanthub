@@ -12,10 +12,29 @@ export interface MockCommit extends Omit<CommitInfo, "date"> {
   date: Date;
 }
 
+export interface MockPullRequestFile {
+  path: string;
+  status: "added" | "modified";
+  additions: number;
+  deletions: number;
+  changedRanges: Array<[number, number]>;
+}
+
+/** Fixture pull request: base = older commit, head = newer commit of the repo. */
+export interface MockPullRequest {
+  number: number;
+  title: string;
+  authorLogin: string;
+  state: "OPEN" | "CLOSED" | "MERGED";
+  headRef: string;
+  files: MockPullRequestFile[];
+}
+
 export interface MockRepo {
   info: RepositoryInfo;
   /** Ordered oldest -> newest; the last one is the head of the default branch. */
   commits: MockCommit[];
+  pullRequests: MockPullRequest[];
 }
 
 function commit(
@@ -71,6 +90,34 @@ export const MOCK_REPOS: MockRepo[] = [
         "2026-08-21T09:05:44Z",
       ),
     ],
+    pullRequests: [
+      {
+        number: 31842,
+        title: "script: reject non-minimal pushes of 75-byte data",
+        authorLogin: "maria-k",
+        state: "OPEN",
+        headRef: "minimal-push-boundary",
+        files: [
+          {
+            path: "src/script/interpreter.cpp",
+            status: "modified",
+            additions: 6,
+            deletions: 2,
+            changedRanges: [
+              [52, 62],
+              [163, 167],
+            ],
+          },
+          {
+            path: "src/test/script_tests.cpp",
+            status: "modified",
+            additions: 12,
+            deletions: 0,
+            changedRanges: [[14, 25]],
+          },
+        ],
+      },
+    ],
   },
   {
     info: {
@@ -104,6 +151,53 @@ export const MOCK_REPOS: MockRepo[] = [
         "trivera",
         "2026-08-09T18:30:27Z",
       ),
+    ],
+    pullRequests: [
+      {
+        number: 15908,
+        title: "url: validate port numbers before use",
+        authorLogin: "dfandrich",
+        state: "OPEN",
+        headRef: "port-validation",
+        files: [
+          {
+            path: "lib/url.c",
+            status: "modified",
+            additions: 9,
+            deletions: 3,
+            changedRanges: [
+              [105, 125],
+              [173, 178],
+            ],
+          },
+          {
+            path: "tests/unit/unit1300.c",
+            status: "modified",
+            additions: 8,
+            deletions: 0,
+            changedRanges: [[18, 30]],
+          },
+        ],
+      },
+      {
+        number: 15890,
+        title: "parsedate: handle two-digit years consistently",
+        authorLogin: "bagder",
+        state: "MERGED",
+        headRef: "parsedate-years",
+        files: [
+          {
+            path: "lib/parsedate.c",
+            status: "modified",
+            additions: 5,
+            deletions: 4,
+            changedRanges: [
+              [115, 120],
+              [144, 148],
+            ],
+          },
+        ],
+      },
     ],
   },
   {
@@ -139,6 +233,31 @@ export const MOCK_REPOS: MockRepo[] = [
         "praman",
         "2026-08-28T16:48:12Z",
       ),
+    ],
+    pullRequests: [
+      {
+        number: 120455,
+        title: "[APInt] Fix comparison of values with equal bit widths",
+        authorLogin: "nikic",
+        state: "OPEN",
+        headRef: "apint-compare",
+        files: [
+          {
+            path: "llvm/lib/Support/APInt.cpp",
+            status: "modified",
+            additions: 4,
+            deletions: 1,
+            changedRanges: [[168, 176]],
+          },
+          {
+            path: "llvm/unittests/Support/APIntTest.cpp",
+            status: "modified",
+            additions: 10,
+            deletions: 0,
+            changedRanges: [[24, 36]],
+          },
+        ],
+      },
     ],
   },
 ];

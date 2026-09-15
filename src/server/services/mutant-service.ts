@@ -29,6 +29,7 @@ import {
 } from "@/server/repositories/mutant-repository";
 import { projectRepository } from "@/server/repositories/project-repository";
 import { projectService } from "./project-service";
+import { pullRequestService } from "./pull-request-service";
 
 export interface DuplicateCheck {
   exact: MutantListItem[];
@@ -98,9 +99,15 @@ export const mutantService = {
       mutatedCode: input.mutatedCode,
     });
 
+    const pullRequestId = await pullRequestService.resolveIdForProject(
+      project.id,
+      input.pullRequestNumber,
+    );
+
     const created = await mutantRepository.create({
       projectId: project.id,
       revisionId: revision.id,
+      pullRequestId,
       filePath: input.filePath,
       startLine: input.startLine,
       endLine: input.endLine,
@@ -136,6 +143,7 @@ export const mutantService = {
       mutatedCode: input.mutatedCode,
       excludeMutantId: created.id,
     });
+    void pullRequestService.refreshForMutant(created);
 
     return { mutant: created, duplicates };
   },

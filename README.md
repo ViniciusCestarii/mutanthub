@@ -101,6 +101,13 @@ All variables are documented in [`.env.example`](.env.example).
 | `GITHUB_MODE`                           | `auto` (live when a token is present, otherwise fixtures), `live`, or `mock`.                                                                 |
 | `GITHUB_CACHE_TTL`                      | Seconds to cache GitHub responses in memory (immutable commits are cached for 24 h).                                                          |
 
+### Making yourself an admin
+
+Set `ADMIN_GITHUB_USERNAMES="your-github-login"` before signing in (or sign out and back in
+after setting it). Admins can review and configure every project. Alternatively, run
+`UPDATE "User" SET "globalRole" = 'ADMIN' WHERE "githubUsername" = 'your-github-login';`
+against the database.
+
 ### Using real GitHub data
 
 1. Create an OAuth app at GitHub → Settings → Developer settings → OAuth Apps, with the callback
@@ -120,8 +127,9 @@ gives each installation its own 5,000 requests per hour and lets repository owne
 explicitly. MutantHub supports both at the same time:
 
 1. Create a GitHub App (Settings -> Developer settings -> GitHub Apps). Repository permissions:
-   **Contents: Read-only** and **Metadata: Read-only**. Subscribe to the **Installation** and
-   **Installation repositories** events. Webhook URL: `<AUTH_URL>/api/github/webhook` with a
+   **Contents: Read-only**, **Metadata: Read-only**, **Pull requests: Read-only** and
+   **Checks: Read and write** (for the MutantHub check on pull requests). Subscribe to the
+   **Installation**, **Installation repositories** and **Pull request** events. Webhook URL: `<AUTH_URL>/api/github/webhook` with a
    secret of your choice. No user authorization is needed; sign-in stays on the OAuth app.
 2. Generate a private key and set `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` (PEM with `\n`
    line breaks, or base64), `GITHUB_APP_SLUG` and `GITHUB_APP_WEBHOOK_SECRET` in `.env`.
@@ -201,7 +209,10 @@ and **service → GitHubClient (live or mock) → cache**.
   per-project role: `CONTRIBUTOR`, `REVIEWER`, `MAINTAINER`. Users have a global role
   (`USER`, `ADMIN`).
 - **Revision** – an exact commit (`projectId + commitSha` is unique). **Every mutant points to a
-  Revision**; a line number is never used as identity.
+  Revision**; a line number is never used as identity. A revision may be the head of a tracked
+  pull request.
+- **PullRequest** – a tracked GitHub pull request with its head/base commits and the changed line
+  ranges of the head, so mutants can be scoped to it and summarised in a check run.
 - **Mutant** – file, line range, original/mutated code, git diff, operator, title, description,
   `fingerprint`, and two independent states:
   - `reviewStatus`: `PENDING`, `NEEDS_INFORMATION`, `APPROVED`, `REJECTED`, `DUPLICATE`,
@@ -395,6 +406,10 @@ throwaway value set in the workflow.
   pending submission (`WITHDRAWN` review status). Every step lands in the history.
 - Reproductions (validations) with an optional killing-test reference (test path, PR or commit
   URL), and comments by any signed-in user.
+- Pull request scope: track a pull request by number (or automatically through the GitHub App
+  webhook), record its head commits as revisions, browse changed files in pull request mode with
+  changed lines highlighted, submit mutants scoped to the pull request, and publish a
+  non-blocking "MutantHub" check run on GitHub summarising the mutants on the changed lines.
 - In-app notifications: submitters and everyone who commented or reproduced a mutant hear about
   review decisions, reproductions, classifications and comments; reviewers hear about new,
   edited and resubmitted submissions. Header bell with unread count, `/notifications` inbox,

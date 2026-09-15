@@ -44,6 +44,22 @@ export interface BrowserMutant {
   validationCount: number;
 }
 
+/** Pull request context for the code browser's PR mode (serializable). */
+export interface BrowserPullRequest {
+  id: string;
+  number: number;
+  title: string;
+  headSha: string;
+  state: "OPEN" | "CLOSED" | "MERGED";
+  htmlUrl: string;
+  /** Changed line ranges of the current file at the PR head (inclusive, 1-based). */
+  ranges: Array<[number, number]>;
+  /** False when the current file is not part of the PR diff. */
+  fileInDiff: boolean;
+  /** True when the browsed commit is the PR head. */
+  atHead: boolean;
+}
+
 export interface BrowserFile {
   path: string;
   size: number;

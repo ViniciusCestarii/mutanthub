@@ -19,13 +19,14 @@ import {
   listRevisionsForSelector,
 } from "@/server/services/code-browser-service";
 import { projectService } from "@/server/services/project-service";
+import { pullRequestService } from "@/server/services/pull-request-service";
 import type { Project } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ owner: string; repo: string; path?: string[] }>;
-  searchParams: Promise<{ ref?: string }>;
+  searchParams: Promise<{ ref?: string; pr?: string }>;
 }
 
 function joinPath(segments: string[] | undefined): string {
@@ -96,11 +97,9 @@ function toBrowserCommit(commit: CommitInfo, headSha: string | null): BrowserCom
 }
 
 export default async function CodePage({ params, searchParams }: PageProps) {
-  const [{ owner, repo, path: segments }, { ref: refParam }, user] = await Promise.all([
-    params,
-    searchParams,
-    getCurrentUser(),
-  ]);
+  const [{ owner, repo, path: segments }, { ref: refParam, pr: prParam }, user] = await Promise.all(
+    [params, searchParams, getCurrentUser()],
+  );
   const path = joinPath(segments);
 
   let project: Project;
@@ -110,7 +109,14 @@ export default async function CodePage({ params, searchParams }: PageProps) {
     if (isAppError(e) && e.code === "NOT_FOUND") notFound();
     throw e;
   }
-  const ref = refParam?.trim() || project.defaultBranch;
+
+  // Pull request mode: highlight the PR's changed lines and default to its head commit.
+  const prNumber = Number(prParam);
+  const prContext =
+    Number.isInteger(prNumber) && prNumber > 0
+      ? await pullRequestService.getFileContext(project, prNumber, path)
+      : null;
+  const ref = refParam?.trim() || prContext?.headSha || project.defaultBranch;
   const backHref = routes.project(project.githubOwner, project.githubRepository);
 
   let loaded: Awaited<ReturnType<typeof loadTarget>>;
@@ -185,6 +191,21 @@ export default async function CodePage({ params, searchParams }: PageProps) {
       treeCache={treeCache}
       revisions={browserRevisions}
       signedIn={Boolean(user)}
+      pullRequest={
+        prContext
+          ? {
+              id: prContext.id,
+              number: prContext.number,
+              title: prContext.title,
+              headSha: prContext.headSha,
+              state: prContext.state,
+              htmlUrl: prContext.htmlUrl,
+              ranges: prContext.ranges,
+              fileInDiff: prContext.fileInDiff,
+              atHead: loaded.commit.sha === prContext.headSha,
+            }
+          : null
+      }
     />
   );
 }

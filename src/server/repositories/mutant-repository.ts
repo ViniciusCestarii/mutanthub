@@ -24,6 +24,7 @@ export const mutantListSelect = {
   mutationStatus: true,
   fingerprint: true,
   duplicateOfId: true,
+  pullRequestId: true,
   createdAt: true,
   updatedAt: true,
   project: {
@@ -139,6 +140,7 @@ export interface CreateMutantData {
   fingerprint: string;
   mutationStatus: MutationStatus;
   createdById: string;
+  pullRequestId: string | null;
   submission: {
     buildCommand: string | null;
     testCommand: string;

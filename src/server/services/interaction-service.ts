@@ -10,6 +10,7 @@ import {
   validationRepository,
 } from "@/server/repositories/interaction-repository";
 import { mutantRepository } from "@/server/repositories/mutant-repository";
+import { pullRequestService } from "./pull-request-service";
 
 /** Validations (reproductions) and comments. */
 export const interactionService = {
@@ -29,7 +30,7 @@ export const interactionService = {
       subject: principal.id,
     });
 
-    return validationRepository.create({
+    const validation = await validationRepository.create({
       mutantId: mutant.id,
       projectId: mutant.project.id,
       userId: principal.id,
@@ -39,6 +40,8 @@ export const interactionService = {
       notes: input.notes ?? null,
       killingTestRef: input.killingTestRef ?? null,
     });
+    void pullRequestService.refreshForMutant(mutant);
+    return validation;
   },
 
   async addComment(principal: Principal | null, rawInput: unknown) {

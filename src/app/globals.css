@@ -243,3 +243,12 @@
 .mh-glyph-mutant.mh-count-many::after {
   content: "9+";
 }
+
+/* Pull request mode: lines changed by the PR */
+.mh-line-changed {
+  background: color-mix(in oklab, var(--color-emerald-500, #10b981) 8%, transparent);
+}
+.mh-changed-margin {
+  border-left: 3px solid color-mix(in oklab, var(--color-emerald-500, #10b981) 70%, transparent);
+  margin-left: 2px;
+}

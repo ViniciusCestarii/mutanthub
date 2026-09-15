@@ -25,6 +25,7 @@ import { mutantRepository, type MutantListItem } from "@/server/repositories/mut
 import { projectRepository } from "@/server/repositories/project-repository";
 import { auditRepository } from "@/server/repositories/audit-repository";
 import { mutantService } from "./mutant-service";
+import { pullRequestService } from "./pull-request-service";
 
 export interface ReviewQueueItem extends MutantListItem {
   possibleDuplicate: boolean;
@@ -141,6 +142,7 @@ export const reviewService = {
       targetId: String(mutant.id),
       metadata: { from: mutant.reviewStatus, to: newStatus, duplicateOfId: duplicateOfId ?? null },
     });
+    void pullRequestService.refreshForMutant(updated);
     return updated;
   },
 
@@ -177,6 +179,7 @@ export const reviewService = {
       targetId: String(mutant.id),
       metadata: { from: mutant.mutationStatus, to: input.status },
     });
+    void pullRequestService.refreshForMutant(updated);
     return updated;
   },
 

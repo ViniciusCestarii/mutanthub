@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Bug, Code2, ExternalLink, FileCode2, GitCommitHorizontal, Settings } from "lucide-react";
+import {
+  Bug,
+  Code2,
+  ExternalLink,
+  FileCode2,
+  GitCommitHorizontal,
+  GitPullRequest,
+  Settings,
+} from "lucide-react";
 import { PageContainer, PageHeader } from "@/components/shared/page-header";
 import { Section } from "@/components/shared/section";
 import { Stat } from "@/components/shared/stat";
@@ -112,6 +120,11 @@ export default async function ProjectOverviewPage({ params }: { params: Params }
               <Button asChild variant="outline" size="sm">
                 <Link href={routes.projectMutants(project.githubOwner, project.githubRepository)}>
                   <Bug className="size-3.5" aria-hidden /> All mutants
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" data-testid="project-pulls-link">
+                <Link href={routes.projectPulls(project.githubOwner, project.githubRepository)}>
+                  <GitPullRequest className="size-3.5" aria-hidden /> Pull requests
                 </Link>
               </Button>
               <Button asChild size="sm" data-testid="browse-code">

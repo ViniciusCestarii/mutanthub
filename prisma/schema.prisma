@@ -157,6 +157,7 @@ model Project {
   mutants       Mutant[]
   activities    Activity[]
   notifications Notification[]
+  pullRequests  PullRequest[]
 
   @@unique([githubOwner, githubRepository])
   @@index([isActive])
@@ -199,10 +200,15 @@ model Revision {
   commitDate    DateTime?
   createdAt     DateTime  @default(now())
 
-  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  mutants Mutant[]
+  /// Set when this commit was the head of a tracked pull request.
+  pullRequestId String?
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  pullRequest PullRequest? @relation(fields: [pullRequestId], references: [id], onDelete: SetNull)
+  mutants     Mutant[]
 
   @@unique([projectId, commitSha])
+  @@index([pullRequestId])
 }
 
 // ---------------------------------------------------------------------------
@@ -226,6 +232,8 @@ model Mutant {
   reviewStatus     ReviewStatus     @default(PENDING)
   mutationStatus   MutationStatus   @default(UNKNOWN)
   duplicateOfId    Int?
+  /// Set when the mutant was submitted in the context of a pull request.
+  pullRequestId    String?
   createdById      String
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -235,6 +243,7 @@ model Mutant {
   createdBy     User                  @relation("MutantCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   duplicateOf   Mutant?               @relation("MutantDuplicates", fields: [duplicateOfId], references: [id], onDelete: SetNull)
   duplicates    Mutant[]              @relation("MutantDuplicates")
+  pullRequest   PullRequest?          @relation(fields: [pullRequestId], references: [id], onDelete: SetNull)
   submissions   Submission[]
   validations   Validation[]
   comments      Comment[]
@@ -249,6 +258,7 @@ model Mutant {
   @@index([mutationStatus])
   @@index([createdById])
   @@index([createdAt])
+  @@index([pullRequestId])
 }
 
 /// How the submitter tested the mutant. Commands are stored as text only.
@@ -400,4 +410,44 @@ model AuditLog {
   @@index([projectId, createdAt])
   @@index([actorId, createdAt])
   @@index([targetType, targetId])
+}
+
+enum PullRequestState {
+  OPEN
+  CLOSED
+  MERGED
+}
+
+/// A tracked GitHub pull request. Mutants can be scoped to it; each head
+/// commit becomes a Revision so drift across PR updates is preserved.
+model PullRequest {
+  id            String           @id @default(cuid())
+  projectId     String
+  number        Int
+  title         String
+  authorLogin   String?
+  state         PullRequestState @default(OPEN)
+  baseRef       String
+  baseSha       String
+  headRef       String
+  headSha       String
+  htmlUrl       String
+  /// Changed line ranges in the head commit, per file: { "path": [[start, end], ...] }.
+  changedRanges Json
+  changedFiles  Int              @default(0)
+  additions     Int              @default(0)
+  deletions     Int              @default(0)
+  /// GitHub check run id for the latest report, when the app can post checks.
+  checkRunId    String?
+  checkRunAt    DateTime?
+  lastSyncedAt  DateTime         @default(now())
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  revisions Revision[]
+  mutants   Mutant[]
+
+  @@unique([projectId, number])
+  @@index([projectId, state, updatedAt])
 }

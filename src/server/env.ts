@@ -78,6 +78,10 @@ export const env = {
     const n = Number(process.env.GITHUB_CACHE_TTL ?? "300");
     return Number.isFinite(n) && n > 0 ? n : 300;
   },
+  /** GitHub usernames promoted to global ADMIN on sign-in (comma-separated). */
+  get adminGithubUsernames(): string | undefined {
+    return process.env.ADMIN_GITHUB_USERNAMES || undefined;
+  },
   /** Optional shared Redis for rate limits and the GitHub cache (multi-instance deployments). */
   get redisUrl(): string | undefined {
     return process.env.REDIS_URL || undefined;

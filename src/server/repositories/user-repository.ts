@@ -98,6 +98,11 @@ export const userRepository = {
     });
   },
 
+  /** Grants the global ADMIN role (idempotent). */
+  async promoteToAdmin(userId: string) {
+    return prisma.user.update({ where: { id: userId }, data: { globalRole: "ADMIN" } });
+  },
+
   /** Dev-only alias kept for the mocked login. */
   findOrCreateMockUser(githubUsername: string) {
     return this.findOrCreateByUsername(githubUsername);

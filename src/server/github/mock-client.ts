@@ -1,9 +1,17 @@
 import "server-only";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { getMockRepo, headCommit, type MockCommit, type MockRepo } from "./fixtures/manifest";
+import {
+  getMockRepo,
+  headCommit,
+  type MockCommit,
+  type MockPullRequest,
+  type MockRepo,
+} from "./fixtures/manifest";
 import {
   GitHubError,
+  type PullRequestFile,
+  type PullRequestInfo,
   MAX_FILE_BYTES,
   type CommitInfo,
   type FileContent,
@@ -134,5 +142,47 @@ export function createMockGitHubClient(): GitHubClient {
       }
       return { ...base, content: buffer.toString("utf8"), tooLarge: false, binary: false };
     },
+
+    async getPullRequest(owner, repo, number): Promise<PullRequestInfo> {
+      const mock = requireRepo(owner, repo);
+      return toPullRequestInfo(mock, requirePull(mock, number));
+    },
+
+    async getPullRequestFiles(owner, repo, number): Promise<PullRequestFile[]> {
+      const mock = requireRepo(owner, repo);
+      return requirePull(mock, number).files.map((f) => ({
+        path: f.path,
+        status: f.status,
+        additions: f.additions,
+        deletions: f.deletions,
+        changedRanges: f.changedRanges.map(([a, b]) => [a, b] as [number, number]),
+      }));
+    },
+  };
+}
+
+function requirePull(mock: MockRepo, number: number): MockPullRequest {
+  const pull = mock.pullRequests.find((p) => p.number === number);
+  if (!pull) throw new GitHubError("NOT_FOUND", `Pull request #${number} not found`);
+  return pull;
+}
+
+/** Fixture PRs go from the older commit (base) to the newer one (head). */
+function toPullRequestInfo(mock: MockRepo, pull: MockPullRequest): PullRequestInfo {
+  const base = mock.commits[0];
+  const head = headCommit(mock);
+  return {
+    number: pull.number,
+    title: pull.title,
+    authorLogin: pull.authorLogin,
+    state: pull.state,
+    baseRef: mock.info.defaultBranch,
+    baseSha: base.sha,
+    headRef: pull.headRef,
+    headSha: head.sha,
+    htmlUrl: `${mock.info.htmlUrl}/pull/${pull.number}`,
+    changedFiles: pull.files.length,
+    additions: pull.files.reduce((n, f) => n + f.additions, 0),
+    deletions: pull.files.reduce((n, f) => n + f.deletions, 0),
   };
 }
