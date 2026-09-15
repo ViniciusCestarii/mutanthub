@@ -43,8 +43,15 @@ export const validationError = (message: string, details?: Record<string, string
   new AppError("VALIDATION", message, details);
 export const conflict = (message: string) => new AppError("CONFLICT", message);
 
+/** Also recognises AppErrors created by another module instance (see isGitHubError). */
 export function isAppError(e: unknown): e is AppError {
-  return e instanceof AppError;
+  if (e instanceof AppError) return true;
+  return (
+    e instanceof Error &&
+    e.name === "AppError" &&
+    typeof (e as { code?: unknown }).code === "string" &&
+    typeof (e as { status?: unknown }).status === "number"
+  );
 }
 
 export function errorMessage(e: unknown): string {

@@ -71,6 +71,42 @@ export const mutantDetailInclude = {
 
 export type MutantDetail = Prisma.MutantGetPayload<{ include: typeof mutantDetailInclude }>;
 
+/** Fields needed for dataset exports (flattened by `toExportRow`). */
+export const mutantExportSelect = {
+  id: true,
+  title: true,
+  description: true,
+  filePath: true,
+  startLine: true,
+  endLine: true,
+  mutationOperator: true,
+  originalCode: true,
+  mutatedCode: true,
+  gitDiff: true,
+  reviewStatus: true,
+  mutationStatus: true,
+  createdAt: true,
+  updatedAt: true,
+  project: { select: { githubOwner: true, githubRepository: true, language: true } },
+  revision: { select: { commitSha: true } },
+  pullRequest: { select: { number: true } },
+  createdBy: { select: { githubUsername: true } },
+  submissions: {
+    select: {
+      observedResult: true,
+      buildCommand: true,
+      testCommand: true,
+      fuzzCommand: true,
+      environmentDescription: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 1,
+  },
+  validations: { select: { result: true, killingTestRef: true } },
+} satisfies Prisma.MutantSelect;
+
+export type MutantExportRecord = Prisma.MutantGetPayload<{ select: typeof mutantExportSelect }>;
+
 export interface MutantListWhere {
   projectId?: string;
   language?: string;
@@ -93,7 +129,7 @@ export interface Page {
   pageSize: number;
 }
 
-function buildWhere(w: MutantListWhere): Prisma.MutantWhereInput {
+export function buildMutantWhere(w: MutantListWhere): Prisma.MutantWhereInput {
   const and: Prisma.MutantWhereInput[] = [];
   if (w.projectId) and.push({ projectId: w.projectId });
   if (w.projectIdIn) and.push({ projectId: { in: w.projectIdIn } });
@@ -166,7 +202,7 @@ export const mutantRepository = {
   },
 
   async list(where: MutantListWhere, page: Page) {
-    const prismaWhere = buildWhere(where);
+    const prismaWhere = buildMutantWhere(where);
     const [items, total] = await prisma.$transaction([
       prisma.mutant.findMany({
         where: prismaWhere,
@@ -427,6 +463,30 @@ export const mutantRepository = {
       });
       return updated;
     });
+  },
+
+  /** Streams matching mutants in id order, in batches, up to `limit` rows. */
+  async *iterateForExport(
+    where: MutantListWhere,
+    limit: number,
+    batchSize = 500,
+  ): AsyncGenerator<MutantExportRecord[]> {
+    const prismaWhere = buildMutantWhere(where);
+    let cursor: number | undefined;
+    let remaining = limit;
+    while (remaining > 0) {
+      const batch = await prisma.mutant.findMany({
+        where: cursor ? { AND: [prismaWhere, { id: { gt: cursor } }] } : prismaWhere,
+        select: mutantExportSelect,
+        orderBy: { id: "asc" },
+        take: Math.min(batchSize, remaining),
+      });
+      if (batch.length === 0) return;
+      yield batch;
+      remaining -= batch.length;
+      cursor = batch[batch.length - 1].id;
+      if (batch.length < batchSize) return;
+    }
   },
 
   countPendingReview(projectIdIn: string[] | null) {

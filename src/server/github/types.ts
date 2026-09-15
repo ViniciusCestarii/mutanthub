@@ -89,8 +89,19 @@ export class GitHubError extends Error {
   }
 }
 
+/**
+ * Type guard that also recognises instances created by another copy of this
+ * module: the GitHub client is a process-wide singleton, and Next.js compiles
+ * route handlers and Server Components as separate module graphs, so
+ * `instanceof` alone is not reliable across them.
+ */
 export function isGitHubError(e: unknown): e is GitHubError {
-  return e instanceof GitHubError;
+  if (e instanceof GitHubError) return true;
+  return (
+    e instanceof Error &&
+    e.name === "GitHubError" &&
+    typeof (e as { kind?: unknown }).kind === "string"
+  );
 }
 
 /** Files above this size are not loaded into the viewer (GitHub caps the contents API at 1 MB anyway). */

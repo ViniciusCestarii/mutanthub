@@ -3,10 +3,15 @@ import { Section } from "@/components/shared/section";
 import { DiffBlock } from "@/components/code/diff-block";
 import { MonacoDiff } from "@/components/code/monaco-diff";
 import { CopyButton } from "@/components/shared/copy-button";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
+import { routes } from "@/lib/routes";
 import { languageForPath } from "@/components/code/language";
 import { parseDiffStats } from "@/domain/mutants/diff";
 
 interface DiffSectionProps {
+  /** Enables the "Download patch" link (GET /api/mutants/[id]/patch). */
+  mutantId?: number;
   filePath: string;
   originalCode: string;
   mutatedCode: string;
@@ -15,11 +20,9 @@ interface DiffSectionProps {
   compact?: boolean;
 }
 
-// TODO(future): add a "Download patch" button backed by GET /api/mutants/[id]/patch
-// (text/x-diff). The gitDiff column already stores the exact patch text.
-
 /** Original vs mutant: side-by-side Monaco diff and the unified patch. */
 export function DiffSection({
+  mutantId,
   filePath,
   originalCode,
   mutatedCode,
@@ -38,7 +41,18 @@ export function DiffSection({
           <span className="text-rose-600 dark:text-rose-400">-{stats.deletions}</span> · {language}
         </span>
       }
-      actions={<CopyButton text={gitDiff} label="Copy patch" className="h-6 px-2 text-xs" />}
+      actions={
+        <span className="flex items-center gap-1">
+          <CopyButton text={gitDiff} label="Copy patch" className="h-6 px-2 text-xs" />
+          {mutantId ? (
+            <Button asChild variant="ghost" size="sm" className="h-6 px-2 text-xs">
+              <a href={routes.mutantPatch(mutantId)} download data-testid="download-patch">
+                <Download className="size-3.5" aria-hidden /> Download patch
+              </a>
+            </Button>
+          ) : null}
+        </span>
+      }
       className={compact ? "border-0 bg-transparent [&>div]:p-0 [&>header]:px-0" : undefined}
     >
       <Tabs defaultValue="side-by-side">

@@ -61,6 +61,7 @@ export function ReviewDetailPanel({ view, signedIn }: ReviewDetailPanelProps) {
       ) : null}
       <MutantNotices view={view} />
       <DiffSection
+        mutantId={mutant.id}
         filePath={mutant.filePath}
         originalCode={mutant.originalCode}
         mutatedCode={mutant.mutatedCode}

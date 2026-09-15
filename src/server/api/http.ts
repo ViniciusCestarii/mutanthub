@@ -18,10 +18,7 @@ export function apiError(status: number, message: string, details?: unknown) {
 }
 
 /** Shared wrapper: rate limiting + error translation for public JSON endpoints. */
-export async function handleApi(
-  request: Request,
-  fn: () => Promise<NextResponse>,
-): Promise<NextResponse> {
+export async function handleApi(request: Request, fn: () => Promise<Response>): Promise<Response> {
   const limit = await checkRateLimit({
     ...RATE_LIMITS.api,
     action: "api",

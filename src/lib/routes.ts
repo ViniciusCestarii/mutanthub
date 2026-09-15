@@ -31,6 +31,13 @@ export const routes = {
   user: (username: string) => `/users/${username}`,
   settings: () => "/settings",
   notifications: () => "/notifications",
+  datasets: () => "/datasets",
+  dataset: (slug: string) => `/datasets/${slug}`,
+  exportMutants: (format: "json" | "csv", query = "") =>
+    `/api/export/mutants.${format}${query ? `?${query}` : ""}`,
+  snapshotDownload: (slug: string, format: "json" | "csv") =>
+    `/api/datasets/${slug}/mutants.${format}`,
+  mutantPatch: (id: number) => `/api/mutants/${id}/patch`,
   search: (q: string) => `/search?q=${encodeURIComponent(q)}`,
   signIn: (callbackUrl?: string) =>
     `/signin${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`,

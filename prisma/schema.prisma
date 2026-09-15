@@ -127,6 +127,7 @@ model User {
   notifications Notification[]        @relation("NotificationRecipient")
   triggered     Notification[]        @relation("NotificationActor")
   auditEntries  AuditLog[]
+  snapshots     DatasetSnapshot[]
   addedProjects Project[]             @relation("ProjectAddedBy")
 
   @@index([globalRole])
@@ -390,6 +391,7 @@ enum AuditAction {
   PROJECT_REGISTERED
   MUTANT_REVIEWED
   MUTANT_CLASSIFIED
+  DATASET_PUBLISHED
 }
 
 /// Append-only record of privileged actions (membership, project state, moderation).
@@ -450,4 +452,26 @@ model PullRequest {
 
   @@unique([projectId, number])
   @@index([projectId, state, updatedAt])
+}
+
+/// A frozen, citable export of mutants. The rows are stored as published so
+/// later status changes never alter a snapshot; the hash makes it verifiable.
+model DatasetSnapshot {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  /// Filters used to select the rows (same keys as the public list API).
+  filters     Json
+  rowCount    Int
+  /// SHA-256 of the canonical JSON rows.
+  contentHash String
+  /// The published rows (ExportRow[]), frozen at creation time.
+  data        Json
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
 }

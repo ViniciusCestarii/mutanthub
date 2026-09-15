@@ -57,6 +57,7 @@ export default async function MutantPage({ params }: { params: Promise<{ id: str
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <DiffSection
+            mutantId={mutant.id}
             filePath={mutant.filePath}
             originalCode={mutant.originalCode}
             mutatedCode={mutant.mutatedCode}

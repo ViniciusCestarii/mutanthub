@@ -19,6 +19,7 @@ export function NavLinks({ user, isReviewer, reviewCount, vertical, onNavigate }
   const links: Array<{ href: string; label: string; badge?: number; testId?: string }> = [
     { href: routes.projects(), label: "Projects" },
     { href: routes.mutants(), label: "Mutants" },
+    { href: routes.datasets(), label: "Dataset" },
   ];
   if (user) links.push({ href: routes.dashboard(), label: "Dashboard" });
   if (isReviewer)

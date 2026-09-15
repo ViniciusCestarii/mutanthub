@@ -26,6 +26,8 @@ the result, and every state change is kept as history so the data can become a p
   publish a non-blocking check run on GitHub.
 - Notifications, project statistics, dashboard, profiles, search, maintainer settings with an
   audit trail, and a public read-only JSON API.
+- Dataset exports as JSON and CSV, per-mutant patch downloads, and frozen, hashed snapshots that
+  a paper can cite.
 - GitHub App support for per-installation rate limits; Redis-backed stores for multi-instance
   deployments; Docker images and a compose stack.
 

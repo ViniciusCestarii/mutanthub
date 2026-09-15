@@ -36,12 +36,13 @@ What is implemented and what is planned.
 - Global mutant list with filters, per-project list, dashboard, public profiles, global search,
   activity feed, settings page.
 - Public read-only JSON API with OpenAPI description; rate limiting; sanitized Markdown; size limits.
+- Dataset exports: streamed JSON and CSV over the list filters, per-mutant patch download, and
+  frozen, hashed, citable snapshots published by administrators from the Dataset page.
 - Seed data, unit/API tests, end-to-end workflow tests.
 
 ## Not yet implemented
 
-- `Download patch` (`/api/mutants/[id]/patch`) and CSV/JSON bulk exports with versioned dataset
-  releases and DOIs.
+- DOI minting for snapshots (for example through Zenodo).
 - Editing/deleting comments from the UI (the service layer already supports comment edits).
 - Automatic rebasing of mutants to newer commits.
 - Isolated execution runners (Docker) for automatic reproduction, CI and mutation-tool imports.

@@ -8,6 +8,10 @@ Read-only endpoints for dataset consumers (rate limit: 120 requests / minute / I
   `reviewStatus`, `mutationStatus`, `contributor`, `commit`, `file`, `q`, `page`, `pageSize`.
 - `GET /api/mutants/:id` – full record with diff, test evidence, validations and history.
 - `GET /api/docs` – OpenAPI 3.1 description of the above.
+- `GET /api/mutants/:id/patch` – the stored unified diff as a `text/x-patch` download.
+- `GET /api/export/mutants.json` and `GET /api/export/mutants.csv` – streamed bulk exports with
+  the same filters plus `limit` (default 10,000, max 50,000). See [Dataset](dataset.md).
+- `GET /api/datasets/:slug/mutants.json` and `mutants.csv` – frozen, hashed snapshots published by admins.
 
 ```json
 {

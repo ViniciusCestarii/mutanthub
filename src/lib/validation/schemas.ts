@@ -227,6 +227,22 @@ export const removeMemberSchema = z.object({
   userId: z.string().min(1),
 });
 
+export const createSnapshotSchema = z.object({
+  name: trimmed(120).min(3, "Name must have at least 3 characters"),
+  description: optionalText(LIMITS.description),
+  project: optionalText(200),
+  reviewStatus: z
+    .union([z.literal(""), reviewStatusSchema])
+    .optional()
+    .transform((v) => (v ? v : undefined)),
+  mutationStatus: z
+    .union([z.literal(""), mutationStatusSchema])
+    .optional()
+    .transform((v) => (v ? v : undefined)),
+});
+
+export type CreateSnapshotInput = z.infer<typeof createSnapshotSchema>;
+
 export const trackPullRequestSchema = z.object({
   projectId: z.string().min(1),
   number: z.coerce.number().int().positive().max(9_999_999),

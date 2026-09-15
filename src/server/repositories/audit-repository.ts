@@ -8,7 +8,7 @@ export interface AuditEntryInput {
   actorId: string | null;
   action: AuditAction;
   projectId?: string | null;
-  targetType: "project" | "member" | "mutant";
+  targetType: "project" | "member" | "mutant" | "dataset";
   targetId: string;
   metadata?: Prisma.InputJsonValue;
 }
