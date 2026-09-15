@@ -42,8 +42,9 @@ export const projectService = {
    * so a project always mirrors a real repository.
    */
   async registerProject(principal: Principal | null, rawInput: unknown): Promise<Project> {
-    if (!canRegisterProject(principal) || !principal)
-      throw forbidden("Sign in to register a project");
+    if (!principal) throw forbidden("Sign in to register a project");
+    if (!canRegisterProject(principal, env.projectRegistration))
+      throw forbidden("Only administrators can register projects on this server");
     const parsed = registerProjectSchema.safeParse(rawInput);
     if (!parsed.success)
       throw validationError("Invalid repository", { repository: "Use owner/repository" });

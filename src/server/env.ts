@@ -78,6 +78,10 @@ export const env = {
     const n = Number(process.env.GITHUB_CACHE_TTL ?? "300");
     return Number.isFinite(n) && n > 0 ? n : 300;
   },
+  /** Who may register projects: "admins" (default) or "users" (any signed-in account). */
+  get projectRegistration(): "admins" | "users" {
+    return process.env.PROJECT_REGISTRATION === "users" ? "users" : "admins";
+  },
   /** GitHub usernames promoted to global ADMIN on sign-in (comma-separated). */
   get adminGithubUsernames(): string | undefined {
     return process.env.ADMIN_GITHUB_USERNAMES || undefined;

@@ -49,8 +49,15 @@ export function canManageProject(p: Principal | null | undefined, projectId: str
   return projectRole(p, projectId) === "MAINTAINER";
 }
 
-export function canRegisterProject(p: Principal | null | undefined): boolean {
-  return Boolean(p);
+/** Who may register new projects: only global admins, or any signed-in user. */
+export type ProjectRegistrationPolicy = "admins" | "users";
+
+export function canRegisterProject(
+  p: Principal | null | undefined,
+  policy: ProjectRegistrationPolicy = "admins",
+): boolean {
+  if (!p) return false;
+  return policy === "users" ? true : isAdmin(p);
 }
 
 export function canSubmitMutant(p: Principal | null | undefined): boolean {

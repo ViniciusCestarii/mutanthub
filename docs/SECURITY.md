@@ -29,20 +29,20 @@ This document records the security posture of MutantHub after the pre-release se
 
 ## Permission matrix
 
-| Action                                         | Requirement (checked in)                                       |
-| ---------------------------------------------- | -------------------------------------------------------------- |
-| Browse projects, code, mutants, profiles, API  | none (public read)                                             |
-| Register a project                             | signed in (`projectService.registerProject`)                   |
-| Follow / unfollow                              | signed in (`projectService.setFollowing`)                      |
-| Submit a mutant                                | signed in, project active (`mutantService.submitMutant`)       |
-| Edit / resubmit / withdraw a submission        | submitter or admin, allowed review state (`mutantService.*`)   |
-| Record a reproduction, comment                 | signed in (`interactionService.*`)                             |
-| Approve / reject / needs info / duplicate      | project reviewer, maintainer or admin (`reviewService.review`) |
-| Classify outcome (killed, equivalent, invalid) | same (`reviewService.changeMutationStatus`)                    |
-| Manage members, activate/deactivate, refresh   | project maintainer or admin (`projectService.*`)               |
-| Remove / demote the last maintainer            | refused (`assertNotLastMaintainer`)                            |
-| Notifications                                  | owner only (`notificationService.*`, `findOwned`)              |
-| Mocked sign-in                                 | only when `AUTH_MOCK` is enabled outside production            |
+| Action                                         | Requirement (checked in)                                                      |
+| ---------------------------------------------- | ----------------------------------------------------------------------------- |
+| Browse projects, code, mutants, profiles, API  | none (public read)                                                            |
+| Register a project                             | global admin by default; any signed-in user with `PROJECT_REGISTRATION=users` |
+| Follow / unfollow                              | signed in (`projectService.setFollowing`)                                     |
+| Submit a mutant                                | signed in, project active (`mutantService.submitMutant`)                      |
+| Edit / resubmit / withdraw a submission        | submitter or admin, allowed review state (`mutantService.*`)                  |
+| Record a reproduction, comment                 | signed in (`interactionService.*`)                                            |
+| Approve / reject / needs info / duplicate      | project reviewer, maintainer or admin (`reviewService.review`)                |
+| Classify outcome (killed, equivalent, invalid) | same (`reviewService.changeMutationStatus`)                                   |
+| Manage members, activate/deactivate, refresh   | project maintainer or admin (`projectService.*`)                              |
+| Remove / demote the last maintainer            | refused (`assertNotLastMaintainer`)                                           |
+| Notifications                                  | owner only (`notificationService.*`, `findOwned`)                             |
+| Mocked sign-in                                 | only when `AUTH_MOCK` is enabled outside production                           |
 
 Rules are pure functions in `src/domain/auth/permissions.ts` and are unit-tested in
 `tests/unit/permissions.test.ts`. Ownership and state rules for submissions are tested in

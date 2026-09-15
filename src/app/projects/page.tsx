@@ -5,6 +5,8 @@ import { PageContainer, PageHeader } from "@/components/shared/page-header";
 import { Section } from "@/components/shared/section";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RegisterProjectForm } from "@/components/projects/register-project-form";
+import { canRegisterProject } from "@/domain/auth/permissions";
+import { env } from "@/server/env";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/server/auth/session";
 import { projectService } from "@/server/services/project-service";
@@ -100,8 +102,13 @@ export default async function ProjectsPage() {
           title="Register repository"
           description="Add a public GitHub repository to the catalogue."
         >
-          {user ? (
+          {user && canRegisterProject(user, env.projectRegistration) ? (
             <RegisterProjectForm />
+          ) : user ? (
+            <p className="text-muted-foreground text-sm" data-testid="register-admin-only">
+              Only administrators can register repositories on this server. Ask an admin to add the
+              project, or to make you an administrator.
+            </p>
           ) : (
             <div className="text-muted-foreground space-y-3 text-sm">
               <p>Sign in with GitHub to register a repository.</p>

@@ -4,6 +4,7 @@ import {
   canChangeMutationStatus,
   canEditComment,
   canManageProject,
+  canRegisterProject,
   canReviewProject,
   canSubmitMutant,
   isAdmin,
@@ -53,6 +54,14 @@ describe("permissions", () => {
     expect(canAccessReviewQueue(null)).toBe(false);
     expect(reviewableProjectIds(nobody)).toEqual([]);
     expect(canChangeMutationStatus(contributor, "p1")).toBe(false);
+  });
+
+  it("project registration is admin-only by default and opt-in for everyone", () => {
+    expect(canRegisterProject(admin)).toBe(true);
+    expect(canRegisterProject(contributor)).toBe(false);
+    expect(canRegisterProject(maintainer, "admins")).toBe(false);
+    expect(canRegisterProject(contributor, "users")).toBe(true);
+    expect(canRegisterProject(null, "users")).toBe(false);
   });
 
   it("any signed-in user can submit; anonymous cannot", () => {

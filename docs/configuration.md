@@ -11,6 +11,8 @@ All variables are documented in [`.env.example`](../.env.example).
 | `AUTH_URL`                              | Public URL of the app (OAuth callbacks).                                                                                                      |
 | `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth app credentials. Callback URL: `<AUTH_URL>/api/auth/callback/github`. Scope requested: `read:user user:email` (no write access). |
 | `AUTH_MOCK`                             | `true` forces the mocked login even when OAuth is configured (development / tests only).                                                      |
+| `PROJECT_REGISTRATION`                  | `admins` (default): only global admins can register projects; `users`: any signed-in account can.                                             |
+| `ADMIN_GITHUB_USERNAMES`                | Comma-separated GitHub usernames promoted to global admin when they sign in (bootstrap).                                                      |
 | `GITHUB_TOKEN`                          | Token used for repository browsing (public read access is enough). Raises the API rate limit to 5,000 req/h.                                  |
 | `GITHUB_MODE`                           | `auto` (live when a token is present, otherwise fixtures), `live`, or `mock`.                                                                 |
 | `GITHUB_CACHE_TTL`                      | Seconds to cache GitHub responses in memory (immutable commits are cached for 24 h).                                                          |
