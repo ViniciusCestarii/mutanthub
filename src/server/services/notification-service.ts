@@ -68,6 +68,10 @@ export function notificationTarget(
       item.type === "MUTANT_EDITED";
     return reviewerEvent ? routes.reviewItem(item.mutant.id) : routes.mutant(item.mutant.id);
   }
-  if (item.project) return routes.project(item.project.githubOwner, item.project.githubRepository);
+  if (item.project) {
+    if (item.type === "MUTANTS_IMPORTED")
+      return routes.projectMutants(item.project.githubOwner, item.project.githubRepository);
+    return routes.project(item.project.githubOwner, item.project.githubRepository);
+  }
   return routes.dashboard();
 }

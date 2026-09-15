@@ -21,6 +21,8 @@ export const routes = {
   projectMutants: (owner: string, repo: string) => `/projects/${owner}/${repo}/mutants`,
   projectSettings: (owner: string, repo: string) => `/projects/${owner}/${repo}/settings`,
   projectPulls: (owner: string, repo: string) => `/projects/${owner}/${repo}/pulls`,
+  projectImport: (owner: string, repo: string) => `/projects/${owner}/${repo}/import`,
+  projectImportApi: (owner: string, repo: string) => `/api/projects/${owner}/${repo}/import`,
   projectPull: (owner: string, repo: string, number: number) =>
     `/projects/${owner}/${repo}/pulls/${number}`,
   mutants: () => "/mutants",

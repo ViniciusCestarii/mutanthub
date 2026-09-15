@@ -82,6 +82,21 @@ export const notificationRepository = {
     return result.count;
   },
 
+  /** Direct fan-out for events that are not tied to one mutant (e.g. bulk imports). */
+  createMany(
+    rows: Array<{
+      userId: string;
+      type: ActivityType;
+      actorId: string | null;
+      mutantId: number | null;
+      projectId: string | null;
+      title: string;
+      body: string | null;
+    }>,
+  ) {
+    return prisma.notification.createMany({ data: rows });
+  },
+
   list(userId: string, opts: { unreadOnly?: boolean; take?: number; skip?: number } = {}) {
     return prisma.notification.findMany({
       where: { userId, readAt: opts.unreadOnly ? null : undefined },

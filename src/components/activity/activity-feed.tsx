@@ -118,6 +118,13 @@ function describe(item: ActivityItem): React.ReactNode {
       return <>A killing test for mutant {mutant} was verified</>;
     case "KILL_REFUTED":
       return <>A killing-test claim for mutant {mutant} was refuted</>;
+    case "MUTANTS_IMPORTED":
+      return (
+        <>
+          {actor} imported {String(payload.created ?? "")} mutants from{" "}
+          <span className="font-mono text-xs">{String(payload.tool ?? "a tool")}</span>
+        </>
+      );
     case "COMMENT_ADDED":
       return (
         <>

@@ -1,0 +1,53 @@
+{
+  "tool": { "name": "example-mutator", "version": "1.0.0" },
+  "defaults": {
+    "commit": "e8d1c4b7a2f5e8d1c4b7a2f5e8d1c4b7a2f5e8d1",
+    "buildCommand": "autoreconf -fi && ./configure --with-openssl && make -j8",
+    "testCommand": "make test-ci",
+    "environment": "Ubuntu 24.04, gcc 13, OpenSSL 3.0",
+    "observedResult": "SURVIVED"
+  },
+  "mutants": [
+    {
+      "file": "lib/escape.c",
+      "startLine": 87,
+      "originalCode": "  alloc = length * 3 + 1;",
+      "mutatedCode": "  alloc = length * 3;",
+      "mutationOperator": "ARITHMETIC_OPERATOR",
+      "tool": { "mutantId": "escape.c:87:arith-1" }
+    },
+    {
+      "file": "lib/escape.c",
+      "startLine": 164,
+      "originalCode": "    if(outputlen <= (size_t)INT_MAX)",
+      "mutatedCode": "    if(outputlen < (size_t)INT_MAX)",
+      "mutationOperator": "RELATIONAL_OPERATOR",
+      "title": "Off by one on the INT_MAX bound in unescape",
+      "tool": { "mutantId": "escape.c:164:rel-1" }
+    },
+    {
+      "file": "lib/http.c",
+      "startLine": 38,
+      "originalCode": "  if(len < 12 || len > MAX_STATUS_LINE)",
+      "mutatedCode": "  if(len <= 12 || len > MAX_STATUS_LINE)",
+      "mutationOperator": "RELATIONAL_OPERATOR",
+      "observedResult": "KILLED",
+      "testDurationSeconds": 95,
+      "tool": { "mutantId": "http.c:38:rel-1" }
+    },
+    {
+      "file": "lib/http.c",
+      "startLine": 38,
+      "originalCode": "  if(len < 12 || len > MAX_STATUS_LINE)",
+      "mutatedCode": "  if(len <= 12 || len > MAX_STATUS_LINE)",
+      "tool": { "mutantId": "http.c:38:rel-1-dup" }
+    },
+    {
+      "file": "lib/http.c",
+      "startLine": 40,
+      "originalCode": "  this line does not exist in the file",
+      "mutatedCode": "  this line does not exist in the file either",
+      "tool": { "mutantId": "bad-row" }
+    }
+  ]
+}

@@ -100,6 +100,7 @@ enum ActivityType {
   KILL_CLAIMED
   KILL_VERIFIED
   KILL_REFUTED
+  MUTANTS_IMPORTED
 }
 
 // ---------------------------------------------------------------------------
@@ -131,6 +132,7 @@ model User {
   triggered     Notification[]        @relation("NotificationActor")
   auditEntries  AuditLog[]
   snapshots     DatasetSnapshot[]
+  imports       ImportBatch[]
   killClaims    KillClaim[]           @relation("KillClaimClaimedBy")
   killVerdicts  KillClaim[]           @relation("KillClaimResolvedBy")
   addedProjects Project[]             @relation("ProjectAddedBy")
@@ -164,6 +166,7 @@ model Project {
   activities    Activity[]
   notifications Notification[]
   pullRequests  PullRequest[]
+  imports       ImportBatch[]
 
   @@unique([githubOwner, githubRepository])
   @@index([isActive])
@@ -240,6 +243,10 @@ model Mutant {
   duplicateOfId    Int?
   /// Set when the mutant was submitted in the context of a pull request.
   pullRequestId    String?
+  /// Provenance for bulk imports: the batch, the tool, and the tool's own mutant id.
+  importBatchId    String?
+  toolName         String?
+  externalId       String?
   createdById      String
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -250,6 +257,7 @@ model Mutant {
   duplicateOf   Mutant?               @relation("MutantDuplicates", fields: [duplicateOfId], references: [id], onDelete: SetNull)
   duplicates    Mutant[]              @relation("MutantDuplicates")
   pullRequest   PullRequest?          @relation(fields: [pullRequestId], references: [id], onDelete: SetNull)
+  importBatch   ImportBatch?          @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
   submissions   Submission[]
   validations   Validation[]
   comments      Comment[]
@@ -266,6 +274,7 @@ model Mutant {
   @@index([createdById])
   @@index([createdAt])
   @@index([pullRequestId])
+  @@index([importBatchId])
 }
 
 /// How the submitter tested the mutant. Commands are stored as text only.
@@ -403,6 +412,7 @@ enum AuditAction {
   MUTANT_REVIEWED
   MUTANT_CLASSIFIED
   DATASET_PUBLISHED
+  MUTANTS_IMPORTED
 }
 
 /// Append-only record of privileged actions (membership, project state, moderation).
@@ -544,4 +554,27 @@ model KillClaim {
   @@index([mutantId, createdAt])
   @@index([pullRequestId])
   @@index([status])
+}
+
+/// One bulk import of tool-generated mutants (admin only, created as approved).
+model ImportBatch {
+  id           String   @id @default(cuid())
+  projectId    String
+  importedById String?
+  toolName     String
+  toolVersion  String?
+  fileName     String?
+  rowCount     Int
+  createdCount Int
+  skippedCount Int
+  errorCount   Int
+  /// Per-row outcome details (errors and skipped duplicates) for the report page.
+  report       Json
+  createdAt    DateTime @default(now())
+
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  importedBy User?    @relation(fields: [importedById], references: [id], onDelete: SetNull)
+  mutants    Mutant[]
+
+  @@index([projectId, createdAt])
 }

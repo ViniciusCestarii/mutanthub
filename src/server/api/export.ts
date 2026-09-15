@@ -54,6 +54,10 @@ export function toExportRow(m: MutantExportRecord, baseUrl: string): ExportRow {
     killClaims: m.killClaims.length
       ? m.killClaims.map((c) => `${referenceLabel(c.kind, c.reference)} (${c.status})`).join(" | ")
       : null,
+    source: m.toolName
+      ? `${m.toolName}${m.importBatch?.toolVersion ? ` ${m.importBatch.toolVersion}` : ""}`
+      : "manual",
+    importBatch: m.importBatchId,
   };
 }
 

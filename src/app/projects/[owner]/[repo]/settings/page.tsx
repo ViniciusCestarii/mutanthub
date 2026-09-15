@@ -7,6 +7,7 @@ import { canManageProject } from "@/domain/auth/permissions";
 import { AppError, isAppError } from "@/lib/errors";
 import { routes } from "@/lib/routes";
 import { PageContainer, PageHeader } from "@/components/shared/page-header";
+import { Button } from "@/components/ui/button";
 import { Section } from "@/components/shared/section";
 import { ErrorState } from "@/components/shared/error-states";
 import { StatusPill } from "@/components/mutants/status-badge";
@@ -115,6 +116,17 @@ export default async function ProjectSettingsPage({ params }: { params: Params }
           <Section title="GitHub access" description="How repository contents are read">
             <GitHubAccessStatus access={githubAccess} />
           </Section>
+          {user.globalRole === "ADMIN" ? (
+            <Section title="Bulk import" description="Administrators only">
+              <p className="text-muted-foreground mb-2 text-xs">
+                Upload the output of a mutation testing tool; rows are validated against the
+                repository and created as approved mutants.
+              </p>
+              <Button asChild variant="outline" size="sm" data-testid="import-link">
+                <Link href={routes.projectImport(owner, repo)}>Import mutants</Link>
+              </Button>
+            </Section>
+          ) : null}
           <Section title="Administration">
             <ProjectAdminControls
               projectId={project.id}

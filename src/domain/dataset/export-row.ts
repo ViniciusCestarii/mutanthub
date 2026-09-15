@@ -36,6 +36,10 @@ export interface ExportRow {
   url: string;
   /** Structured kill claims, e.g. "PR #123 (VERIFIED) | commit abc1234 (CLAIMED)". */
   killClaims: string | null;
+  /** "manual" for hand-written mutants, or the importing tool name and version. */
+  source: string;
+  /** Import batch id for bulk-imported mutants. */
+  importBatch: string | null;
 }
 
 export const EXPORT_COLUMNS: ReadonlyArray<keyof ExportRow> = [
@@ -70,6 +74,8 @@ export const EXPORT_COLUMNS: ReadonlyArray<keyof ExportRow> = [
   "updatedAt",
   "url",
   "killClaims",
+  "source",
+  "importBatch",
 ];
 
 /** Hard cap on rows per export request or snapshot. */

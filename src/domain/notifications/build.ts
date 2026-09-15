@@ -74,6 +74,8 @@ export function notificationTitle(event: NotificationEvent): string {
       return `${actor} changed the outcome of ${ref}`;
     case "COMMENT_ADDED":
       return `${actor} commented on ${ref}`;
+    case "MUTANTS_IMPORTED":
+      return `${actor} imported mutants${event.detail ? ` from ${event.detail}` : ""}`;
     case "KILL_CLAIMED":
       return `${actor} reported a killing test for ${ref}${event.detail ? ` (${event.detail})` : ""}`;
     case "KILL_VERIFIED":

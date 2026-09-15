@@ -133,6 +133,8 @@ export interface MutantFilterValues {
   commit?: string;
   file?: string;
   q?: string;
+  /** Import batch id; carried as a hidden field so it survives re-filtering. */
+  batch?: string;
 }
 
 interface MutantFiltersProps {
@@ -161,6 +163,7 @@ export function MutantFilters({
       className="border-border bg-card rounded-lg border p-3"
       data-testid="mutant-filters"
     >
+      {values.batch ? <input type="hidden" name="batch" value={values.batch} /> : null}
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-9">
         {lockProject ? null : (
           <FilterField label="Project">

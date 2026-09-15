@@ -49,6 +49,8 @@ JSON exports are an array of objects; CSV exports have one header row and RFC 41
 | `contributor`                                                                            | GitHub login of the submitter                                                                                                             |
 | `createdAt`, `updatedAt`                                                                 | ISO 8601 timestamps                                                                                                                       |
 | `killClaims`                                                                             | Structured killing-test claims, e.g. `PR #123 (VERIFIED) \| commit abc1234 (CLAIMED)`; statuses `CLAIMED`, `VERIFIED`, `REFUTED`, `STALE` |
+| `source`                                                                                 | `manual` for hand-written mutants, otherwise the importing tool and version (see [Importing mutants](import.md))                          |
+| `importBatch`                                                                            | Import batch id for bulk-imported mutants, empty otherwise                                                                                |
 
 New columns are only ever appended. Cells starting with `=` or `@` are prefixed with a quote to
 defuse spreadsheet formulas; cells starting with `+` or `-` (diffs, code) are left intact, so

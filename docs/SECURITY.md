@@ -45,6 +45,7 @@ This document records the security posture of MutantHub after the pre-release se
 | Track / resync a pull request                  | signed in, project active (`pullRequestService.track`)                        |
 | Report / re-check a killing-test claim         | signed in (`killClaimService.create` / `refresh`)                             |
 | Verify or refute a claim                       | project reviewer, maintainer or admin (`killClaimService.resolve`)            |
+| Bulk import of tool output                     | global admin only, same-origin upload (`importService.dryRun` / `commit`)     |
 | Check runs on GitHub                           | posted only by the app installation token; never blocking                     |
 | Mocked sign-in                                 | only when `AUTH_MOCK` is enabled outside production                           |
 

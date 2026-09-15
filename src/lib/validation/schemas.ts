@@ -284,6 +284,8 @@ export const mutantListFilterSchema = z.object({
   commit: z.string().trim().max(40).optional(),
   file: z.string().trim().max(LIMITS.filePath).optional(),
   q: z.string().trim().max(LIMITS.searchQuery).optional(),
+  /** Import batch id (bulk imports). */
+  batch: z.string().trim().max(64).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
 });

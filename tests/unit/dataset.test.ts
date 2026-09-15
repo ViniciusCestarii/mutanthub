@@ -35,6 +35,8 @@ const row: ExportRow = {
   updatedAt: "2026-09-02T10:00:00.000Z",
   url: "https://mh.test/mutants/7",
   killClaims: null,
+  source: "manual",
+  importBatch: null,
 };
 
 describe("CSV writer", () => {

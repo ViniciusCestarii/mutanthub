@@ -15,6 +15,7 @@ const LABEL: Record<AuditEntry["action"], string> = {
   MUTANT_REVIEWED: "reviewed a mutant",
   MUTANT_CLASSIFIED: "classified a mutant",
   DATASET_PUBLISHED: "published a dataset snapshot",
+  MUTANTS_IMPORTED: "imported mutants",
 };
 
 function details(entry: AuditEntry): string {

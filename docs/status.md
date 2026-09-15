@@ -42,6 +42,9 @@ What is implemented and what is planned.
   in the pull request check run, and reflected in the mutant's outcome and history.
 - Dataset exports: streamed JSON and CSV over the list filters, per-mutant patch download, and
   frozen, hashed, citable snapshots published by administrators from the Dataset page.
+- Bulk import: administrators upload the output of a mutation testing tool (JSON or JSON Lines);
+  every row is validated against the repository at its commit and against the catalogue for
+  duplicates in a dry run, then imported as approved mutants with the tool recorded as source.
 - Seed data, unit/API tests, end-to-end workflow tests.
 
 ## Not yet implemented
@@ -49,8 +52,8 @@ What is implemented and what is planned.
 - DOI minting for snapshots (for example through Zenodo).
 - Editing/deleting comments from the UI (the service layer already supports comment edits).
 - Automatic rebasing of mutants to newer commits.
-- Isolated execution runners (Docker) for automatic reproduction, CI and mutation-tool imports,
-  including machine verification of killing-test claims.
+- Isolated execution runners (Docker) for automatic reproduction and machine verification of
+  killing-test claims.
 - GitHub App integration, pull-request links, CLI tooling.
 - LLM-assisted analysis and automated equivalent-mutant detection.
 - Email delivery for notifications, subscriptions to projects, gamification beyond the profile

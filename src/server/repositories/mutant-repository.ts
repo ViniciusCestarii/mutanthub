@@ -104,6 +104,9 @@ export const mutantExportSelect = {
   },
   validations: { select: { result: true, killingTestRef: true } },
   killClaims: { select: { kind: true, reference: true, status: true } },
+  toolName: true,
+  importBatchId: true,
+  importBatch: { select: { toolVersion: true } },
 } satisfies Prisma.MutantSelect;
 
 export type MutantExportRecord = Prisma.MutantGetPayload<{ select: typeof mutantExportSelect }>;
@@ -123,6 +126,7 @@ export interface MutantListWhere {
   /** Restrict to a set of projects (reviewer scope). */
   projectIdIn?: string[];
   text?: string;
+  importBatchId?: string;
 }
 
 export interface Page {
@@ -148,6 +152,7 @@ export function buildMutantWhere(w: MutantListWhere): Prisma.MutantWhereInput {
   if (w.filePathContains)
     and.push({ filePath: { contains: w.filePathContains, mode: "insensitive" } });
   if (w.createdSince) and.push({ createdAt: { gte: w.createdSince } });
+  if (w.importBatchId) and.push({ importBatchId: w.importBatchId });
   if (w.text) {
     and.push({
       OR: [

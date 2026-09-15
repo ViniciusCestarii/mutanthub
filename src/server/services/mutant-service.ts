@@ -387,6 +387,7 @@ export const mutantService = {
         commitShaPrefix: filter.commit,
         filePathContains: filter.file,
         text: filter.q,
+        importBatchId: filter.batch,
       },
       { page: filter.page, pageSize: filter.pageSize },
     );
