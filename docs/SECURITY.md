@@ -3,6 +3,19 @@
 This document records the security posture of MutantHub after the pre-release security pass
 (September 2026): what is enforced, where, and what a deployer still has to do.
 
+## Overview
+
+- Commands, patches and logs are stored and displayed as text. Nothing is executed.
+- Markdown is rendered with `marked` and sanitized with `sanitize-html` (no scripts, no event
+- Every mutation goes through a service that checks the session and the role
+- Server Actions include Next.js' built-in origin checks (CSRF protection); Auth.js protects its
+- `src/proxy.ts` sets a nonce-based Content Security Policy (scripts use `'strict-dynamic'`;
+- Privileged actions (membership, project activation, reviews and classifications) are written
+- Post-login redirects accept same-origin paths only.
+- Zod validates all inputs with size limits (`src/lib/validation/limits.ts`).
+- A rate limiter protects submissions, validations, comments, reviews, project registration and
+- File paths are validated against traversal; the mock client refuses paths outside its fixtures.
+
 ## Principles
 
 - **Nothing user-supplied is executed.** Build, test and fuzz commands, patches, logs and
