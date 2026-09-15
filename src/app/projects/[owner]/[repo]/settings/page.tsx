@@ -13,6 +13,7 @@ import { StatusPill } from "@/components/mutants/status-badge";
 import { MemberManager } from "@/components/projects/member-manager";
 import { ProjectAdminControls } from "@/components/projects/project-admin-controls";
 import { AuditTrail } from "@/components/projects/audit-trail";
+import { GitHubAccessStatus } from "@/components/projects/github-access-status";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,10 @@ export default async function ProjectSettingsPage({ params }: { params: Params }
     );
   }
 
-  const { members, maintainers, audit } = await projectService.getSettings(user, project);
+  const [{ members, maintainers, audit }, githubAccess] = await Promise.all([
+    projectService.getSettings(user, project),
+    projectService.getGitHubAccess(project),
+  ]);
 
   return (
     <PageContainer className="space-y-4" wide>
@@ -107,6 +111,9 @@ export default async function ProjectSettingsPage({ params }: { params: Params }
               <dt className="text-muted-foreground">Description</dt>
               <dd>{project.description ?? "—"}</dd>
             </dl>
+          </Section>
+          <Section title="GitHub access" description="How repository contents are read">
+            <GitHubAccessStatus access={githubAccess} />
           </Section>
           <Section title="Administration">
             <ProjectAdminControls

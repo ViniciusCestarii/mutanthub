@@ -113,6 +113,26 @@ All variables are documented in [`.env.example`](.env.example).
 The seeded fixture projects will show "Not found on GitHub" for their fake commits when running
 in live mode; register real repositories instead, or keep `GITHUB_MODE=mock` for the seed data.
 
+### GitHub App (recommended for deployments)
+
+A personal token is shared by everyone and capped at 5,000 requests per hour. A GitHub App
+gives each installation its own 5,000 requests per hour and lets repository owners grant access
+explicitly. MutantHub supports both at the same time:
+
+1. Create a GitHub App (Settings -> Developer settings -> GitHub Apps). Repository permissions:
+   **Contents: Read-only** and **Metadata: Read-only**. Subscribe to the **Installation** and
+   **Installation repositories** events. Webhook URL: `<AUTH_URL>/api/github/webhook` with a
+   secret of your choice. No user authorization is needed; sign-in stays on the OAuth app.
+2. Generate a private key and set `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` (PEM with `\n`
+   line breaks, or base64), `GITHUB_APP_SLUG` and `GITHUB_APP_WEBHOOK_SECRET` in `.env`.
+3. Install the app on the repositories you want to browse. Project maintainers see the
+   installation status and an install link on the project settings page.
+
+For each request MutantHub resolves the installation covering the repository (cached for ten
+minutes, invalidated by the webhook), mints a one-hour installation token, and uses it. If the
+app is not installed on a repository, requests fall back to `GITHUB_TOKEN`, then to anonymous
+access. App JWTs are signed with Node's crypto module; no extra dependency is involved.
+
 ## npm scripts
 
 | Script               | Description                                                    |

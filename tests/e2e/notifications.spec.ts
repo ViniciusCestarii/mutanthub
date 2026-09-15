@@ -35,7 +35,9 @@ test.describe("notifications", () => {
     expect(await unreadCount(page)).toBe(0);
 
     await page.goto(`${FILE_URL}#L${LINE}`);
-    await expect(page.getByTestId("status-selected-line")).toHaveText(`L${LINE}`);
+    await expect(page.locator('[data-testid="status-selected-line"]:visible')).toHaveText(
+      `L${LINE}`,
+    );
     await page.waitForLoadState("networkidle");
     await page.getByTestId("mutants-panel").getByTestId("suggest-mutant").click();
     const drawer = page.getByTestId("suggest-mutant-drawer");

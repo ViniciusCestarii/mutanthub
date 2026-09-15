@@ -14,6 +14,8 @@ import {
 import { userRepository } from "@/server/repositories/user-repository";
 import { auditRepository } from "@/server/repositories/audit-repository";
 import { getGitHubClient } from "@/server/github";
+import { createTokenProvider, githubAppInstallUrl } from "@/server/github/app-auth";
+import { env } from "@/server/env";
 import { isGitHubError, type CommitInfo } from "@/server/github/types";
 import { projectRepository } from "@/server/repositories/project-repository";
 import {
@@ -290,6 +292,28 @@ export const projectService = {
       metadata: { defaultBranch: info.defaultBranch, language: info.language },
     });
     return updated;
+  },
+
+  /** How repository reads are authenticated for this project (settings page). */
+  async getGitHubAccess(project: Project) {
+    if (env.resolvedGithubMode === "mock") {
+      return {
+        mode: "mock" as const,
+        source: "mock" as const,
+        appConfigured: false,
+        installUrl: null,
+      };
+    }
+    const source = await createTokenProvider().describe(
+      project.githubOwner,
+      project.githubRepository,
+    );
+    return {
+      mode: "live" as const,
+      source,
+      appConfigured: env.githubAppConfigured,
+      installUrl: githubAppInstallUrl({ owner: project.githubOwner }),
+    };
   },
 
   async setFollowing(principal: Principal | null, projectId: string, following: boolean) {

@@ -22,7 +22,19 @@ export async function GET() {
   return NextResponse.json(
     {
       status: status === 200 ? "ok" : "degraded",
-      checks: { database, redis, github: env.resolvedGithubMode },
+      checks: {
+        database,
+        redis,
+        github: env.resolvedGithubMode,
+        githubAuth:
+          env.resolvedGithubMode === "mock"
+            ? "mock"
+            : env.githubAppConfigured
+              ? "app"
+              : env.githubToken
+                ? "token"
+                : "anonymous",
+      },
       latencyMs: Date.now() - startedAt,
       timestamp: new Date().toISOString(),
     },

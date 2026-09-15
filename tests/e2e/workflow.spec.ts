@@ -51,7 +51,9 @@ test.describe("mutant workflow", () => {
     await page.evaluate((line) => {
       window.location.hash = `L${line}`;
     }, LINE);
-    await expect(page.getByTestId("status-selected-line")).toHaveText(`L${LINE}`);
+    await expect(page.locator('[data-testid="status-selected-line"]:visible')).toHaveText(
+      `L${LINE}`,
+    );
     await expect(page.getByTestId("selected-line-text")).not.toBeEmpty();
 
     // Existing seed mutants on this file appear in the panel with gutter counts.

@@ -18,7 +18,8 @@ async function signInAs(page: Page, username: string) {
 
 async function submitMutant(page: Page, title: string): Promise<number> {
   await page.goto(`${FILE_URL}#L${LINE}`);
-  await expect(page.getByTestId("status-selected-line")).toHaveText(`L${LINE}`);
+  // React streams the page through a hidden container before revealing it; assert on the visible copy.
+  await expect(page.locator('[data-testid="status-selected-line"]:visible')).toHaveText(`L${LINE}`);
   await page.waitForLoadState("networkidle");
   await page.getByTestId("mutants-panel").getByTestId("suggest-mutant").click();
   const drawer = page.getByTestId("suggest-mutant-drawer");

@@ -37,6 +37,32 @@ export const env = {
   get githubToken(): string | undefined {
     return process.env.GITHUB_TOKEN || undefined;
   },
+  // --- GitHub App (optional; raises rate limits and scopes access per installation) ---
+  get githubAppId(): string | undefined {
+    return process.env.GITHUB_APP_ID || undefined;
+  },
+  get githubAppPrivateKey(): string | undefined {
+    const raw = process.env.GITHUB_APP_PRIVATE_KEY;
+    if (!raw) return undefined;
+    const trimmed = raw.trim();
+    if (trimmed.includes("-----BEGIN")) return trimmed.replace(/\\n/g, "\n");
+    try {
+      const decoded = Buffer.from(trimmed, "base64").toString("utf8");
+      if (decoded.includes("-----BEGIN")) return decoded;
+    } catch {
+      /* not base64 */
+    }
+    return trimmed;
+  },
+  get githubAppSlug(): string | undefined {
+    return process.env.GITHUB_APP_SLUG || undefined;
+  },
+  get githubAppWebhookSecret(): string | undefined {
+    return process.env.GITHUB_APP_WEBHOOK_SECRET || undefined;
+  },
+  get githubAppConfigured(): boolean {
+    return Boolean(this.githubAppId && this.githubAppPrivateKey);
+  },
   get githubMode(): GitHubMode {
     const raw = (process.env.GITHUB_MODE ?? "auto").toLowerCase();
     if (raw === "live" || raw === "mock") return raw;
@@ -46,7 +72,7 @@ export const env = {
   get resolvedGithubMode(): "live" | "mock" {
     const mode = this.githubMode;
     if (mode !== "auto") return mode;
-    return this.githubToken ? "live" : "mock";
+    return this.githubToken || this.githubAppConfigured ? "live" : "mock";
   },
   get githubCacheTtlSeconds(): number {
     const n = Number(process.env.GITHUB_CACHE_TTL ?? "300");

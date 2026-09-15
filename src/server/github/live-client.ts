@@ -1,5 +1,6 @@
 import "server-only";
 import { defaultTtlMs, getOrSet } from "./cache";
+import type { GitHubTokenProvider } from "./app-auth";
 import {
   GitHubError,
   MAX_FILE_BYTES,
@@ -131,7 +132,7 @@ function decodeFile(payload: ContentEntryPayload, path: string): FileContent {
   return { ...base, content: buffer.toString("utf8"), tooLarge: false, binary: false };
 }
 
-export function createLiveGitHubClient(token?: string): GitHubClient {
+export function createLiveGitHubClient(auth: GitHubTokenProvider): GitHubClient {
   const repoUrl = (owner: string, repo: string) =>
     `${API_BASE}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
 
@@ -140,7 +141,10 @@ export function createLiveGitHubClient(token?: string): GitHubClient {
 
     getRepository(owner, repo): Promise<RepositoryInfo> {
       return getOrSet(`gh:repo:${owner}/${repo}`, defaultTtlMs(), async () => {
-        const data = await request<RepoPayload>(repoUrl(owner, repo), token);
+        const data = await request<RepoPayload>(
+          repoUrl(owner, repo),
+          await auth.getToken(owner, repo),
+        );
         return {
           id: String(data.id),
           owner: data.owner.login,
@@ -160,7 +164,7 @@ export function createLiveGitHubClient(token?: string): GitHubClient {
       return getOrSet(`gh:commit:${owner}/${repo}:${ref}`, ttlFor(ref), async () => {
         const data = await request<CommitPayload>(
           `${repoUrl(owner, repo)}/commits/${encodeURIComponent(ref)}`,
-          token,
+          await auth.getToken(owner, repo),
         );
         const date = data.commit.author?.date ? new Date(data.commit.author.date) : null;
         return {
@@ -177,7 +181,10 @@ export function createLiveGitHubClient(token?: string): GitHubClient {
     getTree(owner, repo, ref, path): Promise<TreeEntry[]> {
       return getOrSet(`gh:tree:${owner}/${repo}:${ref}:${path}`, ttlFor(ref), async () => {
         const url = `${repoUrl(owner, repo)}/contents/${encodePath(path)}?ref=${encodeURIComponent(ref)}`;
-        const data = await request<ContentEntryPayload[] | ContentEntryPayload>(url, token);
+        const data = await request<ContentEntryPayload[] | ContentEntryPayload>(
+          url,
+          await auth.getToken(owner, repo),
+        );
         if (!Array.isArray(data)) {
           throw new GitHubError("INVALID", `${path || "/"} is not a directory`);
         }
@@ -195,7 +202,10 @@ export function createLiveGitHubClient(token?: string): GitHubClient {
     getFile(owner, repo, ref, path): Promise<FileContent> {
       return getOrSet(`gh:file:${owner}/${repo}:${ref}:${path}`, ttlFor(ref), async () => {
         const url = `${repoUrl(owner, repo)}/contents/${encodePath(path)}?ref=${encodeURIComponent(ref)}`;
-        const data = await request<ContentEntryPayload[] | ContentEntryPayload>(url, token);
+        const data = await request<ContentEntryPayload[] | ContentEntryPayload>(
+          url,
+          await auth.getToken(owner, repo),
+        );
         if (Array.isArray(data)) {
           throw new GitHubError("INVALID", `${path} is a directory`);
         }
