@@ -60,6 +60,11 @@ export function CodeViewer({
   useEffect(() => {
     callbacksRef.current = { onSelectLine, onIndicatorClick };
   }, [onSelectLine, onIndicatorClick]);
+  // Latest selection, readable from Monaco event handlers registered at mount.
+  const selectedLineRef = useRef<number | null>(selectedLine);
+  useEffect(() => {
+    selectedLineRef.current = selectedLine;
+  }, [selectedLine]);
 
   const applyDecorations = useCallback(() => {
     const editor = editorRef.current;
@@ -137,17 +142,22 @@ export function CodeViewer({
       editor.revealLineInCenter(target);
       editor.setPosition({ lineNumber: target, column: 1 });
     }
+    // The first layout can arrive after mount (automaticLayout); re-reveal the
+    // current selection once the editor has a real height, otherwise a line
+    // selected before layout stays out of the rendered viewport.
+    const layoutListener = editor.onDidLayoutChange((layout) => {
+      if (layout.height <= 0) return;
+      const line = selectedLineRef.current;
+      if (line) editor.revealLineInCenterIfOutsideViewport(line);
+      layoutListener.dispose();
+    });
     applyDecorations();
   };
 
   // Reveal the selected line when it changes from outside (e.g. clicking a mutant in the side panel).
   useEffect(() => {
     if (selectedLine && editorRef.current) {
-      const visible = editorRef.current.getVisibleRanges();
-      const inView = visible.some(
-        (r) => r.startLineNumber <= selectedLine && selectedLine <= r.endLineNumber,
-      );
-      if (!inView) editorRef.current.revealLineInCenter(selectedLine);
+      editorRef.current.revealLineInCenterIfOutsideViewport(selectedLine);
     }
   }, [selectedLine]);
 

@@ -58,12 +58,14 @@ test.describe("pull requests", () => {
     await expect(page.getByTestId("pull-request-notice")).toContainText(`PR #${PR}`);
     await expect(page.getByTestId("mutants-panel").getByTestId("line-outside-diff")).toBeVisible();
 
+    // Wait for Monaco itself (loaded from a CDN, slow on CI) before changing the selection.
+    await expect(page.locator(".monaco-editor .view-lines")).toBeVisible({ timeout: 60_000 });
     await page.evaluate((line) => {
       window.location.hash = `L${line}`;
     }, CHANGED_LINE);
     await expect(page.getByTestId("mutants-panel").getByTestId("line-in-diff")).toBeVisible();
-    // Monaco marks the changed lines.
-    await expect(page.locator(".mh-line-changed").first()).toBeVisible();
+    // Monaco marks the changed lines once the selection is scrolled into view.
+    await expect(page.locator(".mh-line-changed").first()).toBeVisible({ timeout: 30_000 });
 
     await page.getByTestId("mutants-panel").getByTestId("suggest-mutant").click();
     const drawer = page.getByTestId("suggest-mutant-drawer");
