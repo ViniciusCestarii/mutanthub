@@ -105,12 +105,16 @@ services:
       - sh
       - -c
       - |
+        if [ -z "$$CRON_SECRET" ]; then
+          echo "CRON_SECRET is not set; scheduled jobs are disabled" >&2;
+          exit 1;
+        fi;
         while true; do
           curl -fsS -X POST -H "Authorization: Bearer $$CRON_SECRET" http://app:3000/api/jobs/drift || echo "drift job failed";
           sleep "$${JOBS_INTERVAL_SECONDS:-86400}";
         done
     environment:
-      CRON_SECRET: ${CRON_SECRET:?set CRON_SECRET in .env to run scheduled jobs}
+      CRON_SECRET: ${CRON_SECRET:-}
       JOBS_INTERVAL_SECONDS: ${JOBS_INTERVAL_SECONDS:-86400}
     profiles: ["jobs"]
     depends_on:
