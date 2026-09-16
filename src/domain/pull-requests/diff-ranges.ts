@@ -75,6 +75,25 @@ export function mutantTouchesDiff(
   return ranges.some(([start, end]) => mutant.endLine >= start && mutant.startLine <= end);
 }
 
+/** True when every line from `start` to `end` lies inside one of the changed ranges. */
+export function spanWithinRanges(start: number, end: number, ranges: LineRange[]): boolean {
+  if (end < start) return false;
+  const merged = mergeRanges(ranges);
+  return merged.some(([from, to]) => start >= from && end <= to);
+}
+
+/** The changed range that contains `line`, if any. */
+export function rangeContaining(line: number, ranges: LineRange[]): LineRange | null {
+  return mergeRanges(ranges).find(([from, to]) => line >= from && line <= to) ?? null;
+}
+
+/** "115–121, 130–134" for error messages. */
+export function formatRanges(ranges: LineRange[]): string {
+  return mergeRanges(ranges)
+    .map(([from, to]) => (from === to ? `${from}` : `${from}–${to}`))
+    .join(", ");
+}
+
 export function countChangedLines(ranges: LineRange[]): number {
   return ranges.reduce((n, [start, end]) => n + (end - start + 1), 0);
 }

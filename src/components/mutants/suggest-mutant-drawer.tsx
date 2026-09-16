@@ -53,6 +53,8 @@ export interface SuggestMutantDrawerProps {
   onSubmitted?: (mutantId: number) => void;
   /** Scopes the submission to a tracked pull request (pull request mode). */
   pullRequestNumber?: number | null;
+  /** Pull request mode: last line of the changed block containing the selected line. */
+  lineLimit?: number | null;
 }
 
 const OBSERVED_OPTIONS: Array<{
@@ -120,6 +122,7 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
     selectedLine,
     onSubmitted,
     pullRequestNumber = null,
+    lineLimit = null,
   } = props;
   const router = useRouter();
   const [state, formAction, isPending] = useActionState<
@@ -158,8 +161,9 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
     (deleteLines || mutatedCode.trim().length > 0) &&
     originalCode.trim() !== mutatedCode.trim();
 
+  const maxEndLine = Math.min(lines.length || selectedLine, lineLimit ?? Number.MAX_SAFE_INTEGER);
   const handleEndLineChange = (value: number) => {
-    const clamped = Math.min(Math.max(value, selectedLine), lines.length || selectedLine);
+    const clamped = Math.min(Math.max(value, selectedLine), maxEndLine);
     setEndLine(clamped);
     setOriginalCode(rangeText(selectedLine, clamped));
   };
@@ -364,14 +368,18 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
                     label="End line"
                     htmlFor="endLine"
                     error={errors.endLine}
-                    hint="Extend for multi-line mutations"
+                    hint={
+                      lineLimit
+                        ? `Pull request mode: only the changed block, up to L${lineLimit}`
+                        : "Extend for multi-line mutations"
+                    }
                   >
                     <Input
                       id="endLine"
                       name="endLine"
                       type="number"
                       min={selectedLine}
-                      max={lines.length || undefined}
+                      max={maxEndLine || undefined}
                       value={endLine}
                       onChange={(e) => handleEndLineChange(Number(e.target.value) || selectedLine)}
                       className="w-24 font-mono"

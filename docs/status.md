@@ -26,7 +26,8 @@ What is implemented and what is planned.
   URL), and comments by any signed-in user.
 - Pull request scope: track a pull request by number (or automatically through the GitHub App
   webhook), record its head commits as revisions, browse changed files in pull request mode with
-  changed lines highlighted, submit mutants scoped to the pull request, and publish a
+  changed lines highlighted, submit mutants scoped to the pull request (only on lines the pull
+  request changed, enforced server-side), and publish a
   non-blocking "MutantHub" check run on GitHub summarising the mutants on the changed lines.
 - In-app notifications: submitters and everyone who commented or reproduced a mutant hear about
   review decisions, reproductions, classifications and comments; reviewers hear about new,

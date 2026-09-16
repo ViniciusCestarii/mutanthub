@@ -10,6 +10,7 @@ import { languageForPath } from "@/components/code/language";
 import { EmptyState } from "@/components/shared/empty-state";
 import { SuggestMutantDrawer } from "@/components/mutants/suggest-mutant-drawer";
 import { routes } from "@/lib/routes";
+import { rangeContaining } from "@/domain/pull-requests/diff-ranges";
 import { shortSha } from "@/lib/format";
 import { Breadcrumbs } from "./breadcrumbs";
 import { CommitSelector } from "./commit-selector";
@@ -97,11 +98,9 @@ export function CodeWorkspace({
     [content],
   );
   const language = languageForPath(path);
-  const lineInDiff =
-    selectedLine != null &&
-    (pullRequest?.ranges ?? []).some(
-      ([start, end]) => selectedLine >= start && selectedLine <= end,
-    );
+  const changedBlock =
+    selectedLine != null ? rangeContaining(selectedLine, pullRequest?.ranges ?? []) : null;
+  const lineInDiff = changedBlock != null;
 
   const mutantCounts = useMemo(() => {
     const counts: Record<number, number> = {};
@@ -149,7 +148,16 @@ export function CodeWorkspace({
       signInHref={routes.signIn(currentUrl)}
       pullRequest={
         pullRequest
-          ? { number: pullRequest.number, fileInDiff: pullRequest.fileInDiff, lineInDiff }
+          ? {
+              number: pullRequest.number,
+              fileInDiff: pullRequest.fileInDiff,
+              lineInDiff,
+              atHead: pullRequest.atHead,
+              leaveHref: routes.projectCode(project.owner, project.repo, path, {
+                ref: commit.sha,
+                line: selectedLine ?? undefined,
+              }),
+            }
           : null
       }
     />
@@ -371,6 +379,7 @@ export function CodeWorkspace({
           lines={lines}
           selectedLine={selectedLine}
           pullRequestNumber={pullRequest?.atHead ? pullRequest.number : null}
+          lineLimit={pullRequest?.atHead && changedBlock ? changedBlock[1] : null}
         />
       ) : null}
     </div>

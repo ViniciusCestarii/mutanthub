@@ -26,7 +26,15 @@ interface MutantsPanelProps {
   signedIn: boolean;
   signInHref: string;
   /** Pull request mode: whether the selected line is part of the PR diff. */
-  pullRequest?: { number: number; fileInDiff: boolean; lineInDiff: boolean } | null;
+  pullRequest?: {
+    number: number;
+    fileInDiff: boolean;
+    lineInDiff: boolean;
+    /** Viewing the PR head: submissions are scoped and limited to changed lines. */
+    atHead: boolean;
+    /** Same file and line without the pull request scope. */
+    leaveHref: string;
+  } | null;
 }
 
 function MutantItem({
@@ -143,8 +151,18 @@ export function MutantsPanel({
                   data-testid="line-outside-diff"
                 >
                   {pullRequest.fileInDiff
-                    ? `Not changed by PR #${pullRequest.number}. The mutant will still be recorded against the PR but outside its diff.`
-                    : `This file is not part of PR #${pullRequest.number}'s diff.`}
+                    ? `Not changed by PR #${pullRequest.number}.`
+                    : `This file is not part of PR #${pullRequest.number}'s diff.`}{" "}
+                  {pullRequest.atHead
+                    ? "Only lines changed by the pull request can be mutated here."
+                    : "Not at the PR head: a mutant here is not scoped to the pull request."}{" "}
+                  <Link
+                    href={pullRequest.leaveHref}
+                    className="underline underline-offset-2"
+                    data-testid="leave-pull-request"
+                  >
+                    Browse without the pull request
+                  </Link>
                 </p>
               )
             ) : null}
@@ -153,6 +171,7 @@ export function MutantsPanel({
                 className="mt-2 w-full"
                 size="sm"
                 onClick={onSuggest}
+                disabled={Boolean(pullRequest?.atHead && !pullRequest.lineInDiff)}
                 data-testid="suggest-mutant"
               >
                 <Plus className="size-3.5" aria-hidden /> Suggest mutant

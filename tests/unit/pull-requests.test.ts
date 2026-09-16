@@ -6,6 +6,10 @@ import {
   mergeRanges,
   mutantTouchesDiff,
   parseChangedRanges,
+  formatRanges,
+  rangeContaining,
+  spanWithinRanges,
+  type LineRange,
 } from "@/domain/pull-requests/diff-ranges";
 import { buildCheckSummary, type CheckMutant } from "@/domain/pull-requests/check-summary";
 
@@ -95,6 +99,28 @@ describe("range helpers", () => {
       "a.c": [[1, 5]],
     });
     expect(parseChangedRanges(null)).toEqual({});
+  });
+});
+
+describe("spanWithinRanges / rangeContaining / formatRanges", () => {
+  const ranges: LineRange[] = [
+    [115, 121],
+    [130, 134],
+    [122, 123],
+  ];
+  it("accepts spans fully inside a changed block and rejects the rest", () => {
+    expect(spanWithinRanges(117, 117, ranges)).toBe(true);
+    expect(spanWithinRanges(115, 123, ranges)).toBe(true); // adjacent blocks merge
+    expect(spanWithinRanges(121, 130, ranges)).toBe(false); // crosses unchanged lines
+    expect(spanWithinRanges(30, 30, ranges)).toBe(false);
+    expect(spanWithinRanges(118, 117, ranges)).toBe(false);
+    expect(spanWithinRanges(1, 1, [])).toBe(false);
+  });
+  it("finds the containing block and formats ranges", () => {
+    expect(rangeContaining(122, ranges)).toEqual([115, 123]);
+    expect(rangeContaining(125, ranges)).toBeNull();
+    expect(formatRanges(ranges)).toBe("115–123, 130–134");
+    expect(formatRanges([[7, 7]])).toBe("7");
   });
 });
 

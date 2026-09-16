@@ -4,6 +4,7 @@ import { canReviewProject, canSubmitMutant, isMutantOwner } from "@/domain/auth/
 import { computeFingerprint } from "@/domain/mutants/fingerprint";
 import { generateTitle } from "@/domain/mutants/title";
 import { generateUnifiedDiff, looksLikeUnifiedDiff } from "@/domain/mutants/diff";
+import { formatRanges, spanWithinRanges } from "@/domain/pull-requests/diff-ranges";
 import {
   canEditSubmission,
   canResubmit,
@@ -100,10 +101,30 @@ export const mutantService = {
       mutatedCode: input.mutatedCode,
     });
 
-    const pullRequestId = await pullRequestService.resolveIdForProject(
-      project.id,
-      input.pullRequestNumber,
-    );
+    // Pull request mode: the mutant must sit on lines the pull request changed, at its head.
+    let pullRequestId: string | null = null;
+    if (input.pullRequestNumber) {
+      const context = await pullRequestService.getFileContext(
+        project,
+        input.pullRequestNumber,
+        input.filePath,
+      );
+      if (!context)
+        throw validationError("Pull request not tracked", {
+          endLine: `Pull request #${input.pullRequestNumber} is not tracked for this project`,
+        });
+      if (context.headSha.toLowerCase() !== revision.commitSha.toLowerCase())
+        throw validationError("Wrong commit for the pull request", {
+          commitSha: `Mutants for PR #${context.number} must target its head commit ${context.headSha.slice(0, 7)}`,
+        });
+      if (!spanWithinRanges(input.startLine, input.endLine, context.ranges))
+        throw validationError("Only lines changed by the pull request can be mutated", {
+          endLine: context.fileInDiff
+            ? `Lines ${input.startLine}–${input.endLine} are outside the diff of PR #${context.number} (changed lines: ${formatRanges(context.ranges)})`
+            : `${input.filePath} is not part of the diff of PR #${context.number}`,
+        });
+      pullRequestId = context.id;
+    }
 
     const created = await mutantRepository.create({
       projectId: project.id,

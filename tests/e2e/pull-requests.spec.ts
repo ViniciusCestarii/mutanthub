@@ -56,7 +56,10 @@ test.describe("pull requests", () => {
     );
     await page.waitForLoadState("networkidle");
     await expect(page.getByTestId("pull-request-notice")).toContainText(`PR #${PR}`);
-    await expect(page.getByTestId("mutants-panel").getByTestId("line-outside-diff")).toBeVisible();
+    await expect(page.getByTestId("mutants-panel").getByTestId("line-outside-diff")).toContainText(
+      "Only lines changed by the pull request can be mutated",
+    );
+    await expect(page.getByTestId("mutants-panel").getByTestId("suggest-mutant")).toBeDisabled();
 
     // Wait for Monaco itself (loaded from a CDN, slow on CI) before changing the selection.
     await expect(page.locator(".monaco-editor .view-lines")).toBeVisible({ timeout: 60_000 });
@@ -77,6 +80,33 @@ test.describe("pull requests", () => {
     await drawer.getByTestId("mutant-environment").fill("Debian 12, gcc 14 (pr mode)");
     await drawer.getByTestId("mutant-submit").click();
     await expect(drawer.getByTestId("mutant-success")).toBeVisible();
+  });
+
+  test("the server refuses a pull-request mutant outside the changed lines", async ({ page }) => {
+    await signInAs(page, "frank");
+    await page.goto(`/projects/${OWNER}/${REPO}/code/lib/url.c?pr=${PR}#L${CHANGED_LINE}`);
+    await expect(page.locator('[data-testid="status-selected-line"]:visible')).toHaveText(
+      `L${CHANGED_LINE}`,
+    );
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("mutants-panel").getByTestId("line-in-diff")).toBeVisible();
+    await page.getByTestId("mutants-panel").getByTestId("suggest-mutant").click();
+    const drawer = page.getByTestId("suggest-mutant-drawer");
+    await expect(drawer.locator('input[name="pullRequestNumber"]')).toHaveValue(String(PR));
+    const original = await drawer.getByTestId("mutant-original").inputValue();
+    await drawer.getByTestId("mutant-mutated").fill(`${original} /* outside */`);
+    await drawer.getByTestId("mutant-test-command").fill("make test-ci");
+    // Tamper with the form the way a crafted request would: move the mutant to an unchanged line.
+    await drawer.locator('input[name="startLine"]').evaluate((el, line) => {
+      (el as HTMLInputElement).value = String(line);
+    }, UNCHANGED_LINE);
+    await drawer.locator('input[name="endLine"]').evaluate((el, line) => {
+      el.removeAttribute("min");
+      (el as HTMLInputElement).value = String(line);
+    }, UNCHANGED_LINE);
+    await drawer.getByTestId("mutant-submit").click();
+    await expect(drawer).toContainText(/outside the diff of PR #15908/);
+    await expect(drawer.getByTestId("mutant-success")).toHaveCount(0);
   });
 
   test("the pull request page lists the mutant on the changed lines", async ({ page }) => {
