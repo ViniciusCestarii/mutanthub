@@ -51,6 +51,14 @@ export const projectRepository = {
     return prisma.project.findUnique({ where: { id } });
   },
 
+  /** Full rows of active projects, for background jobs. */
+  listActiveFull() {
+    return prisma.project.findMany({
+      where: { isActive: true },
+      orderBy: [{ displayName: "asc" }],
+    });
+  },
+
   list(opts: { activeOnly?: boolean } = {}) {
     return prisma.project.findMany({
       where: opts.activeOnly ? { isActive: true } : undefined,

@@ -15,6 +15,7 @@ All variables are documented in [`.env.example`](../.env.example).
 | `ADMIN_GITHUB_USERNAMES`                | Comma-separated GitHub usernames promoted to global admin when they sign in (bootstrap).                                                      |
 | `GITHUB_TOKEN`                          | Token used for repository browsing (public read access is enough). Raises the API rate limit to 5,000 req/h.                                  |
 | `GITHUB_MODE`                           | `auto` (live when a token is present, otherwise fixtures), `live`, or `mock`.                                                                 |
+| `CRON_SECRET`                           | Bearer token for scheduled jobs such as `POST /api/jobs/drift` (see [Deployment](deployment.md)). Jobs are disabled when unset.               |
 | `GITHUB_CACHE_TTL`                      | Seconds to cache GitHub responses in memory (immutable commits are cached for 24 h).                                                          |
 
 ## Making yourself an admin

@@ -16,6 +16,7 @@ const LABEL: Record<AuditEntry["action"], string> = {
   MUTANT_CLASSIFIED: "classified a mutant",
   DATASET_PUBLISHED: "published a dataset snapshot",
   MUTANTS_IMPORTED: "imported mutants",
+  DRIFT_CHECKED: "checked drift against the default branch",
 };
 
 function details(entry: AuditEntry): string {
@@ -24,6 +25,8 @@ function details(entry: AuditEntry): string {
   if (typeof m.username === "string") parts.push(`@${m.username}`);
   if (typeof m.role === "string") parts.push(m.role.toLowerCase());
   if (typeof m.from === "string" && typeof m.to === "string") parts.push(`${m.from} → ${m.to}`);
+  if (typeof m.head === "string" && typeof m.gone === "number")
+    parts.push(`${m.head.slice(0, 7)}: ${m.moved ?? 0} moved, ${m.gone} gone`);
   if (entry.targetType === "mutant") parts.push(`#${entry.targetId}`);
   return parts.join(" · ");
 }

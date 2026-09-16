@@ -118,6 +118,18 @@ function describe(item: ActivityItem): React.ReactNode {
       return <>A killing test for mutant {mutant} was verified</>;
     case "KILL_REFUTED":
       return <>A killing-test claim for mutant {mutant} was refuted</>;
+    case "MUTANT_DRIFTED":
+      return (
+        <>
+          The original code of mutant {mutant} is no longer on the default branch
+          {payload.head ? (
+            <>
+              {" "}
+              (<span className="font-mono text-xs">{String(payload.head).slice(0, 7)}</span>)
+            </>
+          ) : null}
+        </>
+      );
     case "MUTANTS_IMPORTED":
       return (
         <>

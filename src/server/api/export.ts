@@ -58,6 +58,8 @@ export function toExportRow(m: MutantExportRecord, baseUrl: string): ExportRow {
       ? `${m.toolName}${m.importBatch?.toolVersion ? ` ${m.importBatch.toolVersion}` : ""}`
       : "manual",
     importBatch: m.importBatchId,
+    driftStatus: m.driftStatus,
+    driftCheckedCommit: m.driftCommitSha,
   };
 }
 

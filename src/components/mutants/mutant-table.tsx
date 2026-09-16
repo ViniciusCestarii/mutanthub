@@ -7,7 +7,7 @@ import { relativeTime, shortSha } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/shared/empty-state";
 import { UserChip } from "@/components/shared/user-chip";
-import { MutationStatusBadge, OperatorBadge, ReviewStatusBadge } from "./status-badge";
+import { DriftBadge, MutationStatusBadge, OperatorBadge, ReviewStatusBadge } from "./status-badge";
 import { ValidationDots } from "./validation-dots";
 
 interface MutantTableProps {
@@ -105,6 +105,7 @@ export function MutantTable({
                   <div className="flex flex-col gap-1">
                     <ReviewStatusBadge status={m.reviewStatus} />
                     <MutationStatusBadge status={m.mutationStatus} />
+                    <DriftBadge status={m.driftStatus} line={m.driftLine} />
                   </div>
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">

@@ -49,6 +49,7 @@ export default async function MutantsPage({
     commit: filter.commit,
     file: filter.file,
     q: filter.q,
+    drift: filter.drift,
   };
   const languages = [
     ...new Set(projects.map((p) => p.language).filter((l): l is string => Boolean(l))),

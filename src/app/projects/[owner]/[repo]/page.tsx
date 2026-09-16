@@ -52,7 +52,7 @@ export default async function ProjectOverviewPage({ params }: { params: Params }
     projectService.getHeadCommit(project),
     projectService.isFollowing(user, project.id),
   ]);
-  const { counts } = overview;
+  const { counts, drift } = overview;
   const codeRef = head?.sha ?? project.defaultBranch;
 
   return (
@@ -151,7 +151,7 @@ export default async function ProjectOverviewPage({ params }: { params: Params }
           commits may no longer match.
         </p>
 
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <Stat label="Total mutants" value={counts.total} />
           <Stat label="Surviving" value={counts.surviving} tone="warning" />
           <Stat label="Killed" value={counts.killed} tone="success" />
@@ -161,6 +161,16 @@ export default async function ProjectOverviewPage({ params }: { params: Params }
             value={counts.pendingReview + counts.needsInformation}
             hint={
               counts.needsInformation ? `${counts.needsInformation} need information` : undefined
+            }
+          />
+          <Stat
+            label="Drifted at HEAD"
+            value={drift.moved + drift.gone}
+            tone={drift.gone ? "danger" : "warning"}
+            hint={
+              project.driftCheckedAt
+                ? `${drift.gone} gone, ${drift.moved} moved · checked ${relativeTime(project.driftCheckedAt)}`
+                : "not checked yet"
             }
           />
         </div>

@@ -101,6 +101,15 @@ enum ActivityType {
   KILL_VERIFIED
   KILL_REFUTED
   MUTANTS_IMPORTED
+  MUTANT_DRIFTED
+}
+
+/// Whether a mutant's original code is still where it was, on the project's default branch.
+enum DriftStatus {
+  UNCHECKED
+  APPLIES
+  MOVED
+  GONE
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +164,9 @@ model Project {
   language           String?
   isActive           Boolean  @default(true)
   addedById          String?
+  /// Last drift check against the default branch (see driftStatus on mutants).
+  driftCheckedAt     DateTime?
+  driftCommitSha     String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -244,6 +256,12 @@ model Mutant {
   /// Set when the mutant was submitted in the context of a pull request.
   pullRequestId    String?
   /// Provenance for bulk imports: the batch, the tool, and the tool's own mutant id.
+  /// Result of the last drift check: is originalCode still at startLine on the default branch?
+  driftStatus    DriftStatus @default(UNCHECKED)
+  driftCheckedAt DateTime?
+  driftCommitSha String?
+  /// Line where the original code was found when MOVED.
+  driftLine      Int?
   importBatchId    String?
   toolName         String?
   externalId       String?
@@ -275,6 +293,7 @@ model Mutant {
   @@index([createdAt])
   @@index([pullRequestId])
   @@index([importBatchId])
+  @@index([projectId, driftStatus])
 }
 
 /// How the submitter tested the mutant. Commands are stored as text only.
@@ -413,6 +432,7 @@ enum AuditAction {
   MUTANT_CLASSIFIED
   DATASET_PUBLISHED
   MUTANTS_IMPORTED
+  DRIFT_CHECKED
 }
 
 /// Append-only record of privileged actions (membership, project state, moderation).

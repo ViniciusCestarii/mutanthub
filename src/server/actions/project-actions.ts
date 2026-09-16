@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/server/auth/session";
 import { projectService } from "@/server/services/project-service";
+import { driftService, type DriftSummary } from "@/server/services/drift-service";
 import { routes } from "@/lib/routes";
 import { formToObject, runAction, type ActionResult } from "./result";
 
@@ -103,6 +104,21 @@ export async function refreshProjectAction(
     );
     revalidateProject(formData);
     return { displayName: project.displayName };
+  });
+}
+
+export async function checkDriftAction(
+  _prev: ActionResult<DriftSummary> | null,
+  formData: FormData,
+): Promise<ActionResult<DriftSummary>> {
+  return runAction(async () => {
+    const user = await getCurrentUser();
+    const summary = await driftService.checkAsMaintainer(
+      user,
+      String(formData.get("projectId") ?? ""),
+    );
+    revalidateProject(formData);
+    return summary;
   });
 }
 

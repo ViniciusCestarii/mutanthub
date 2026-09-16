@@ -1,4 +1,5 @@
 import type {
+  DriftStatus,
   MutationOperator,
   MutationStatus,
   ReviewStatus,
@@ -100,6 +101,34 @@ export function ReviewStatusBadge({
       data-status={status}
     >
       {REVIEW_STATUS_LABEL[status]}
+    </StatusPill>
+  );
+}
+
+/** Shown only when the last drift check found the code moved or gone. */
+export function DriftBadge({
+  status,
+  line,
+  className,
+}: {
+  status: DriftStatus;
+  line: number | null;
+  className?: string;
+}) {
+  if (status === "UNCHECKED" || status === "APPLIES") return null;
+  return (
+    <StatusPill
+      tone={status === "GONE" ? "danger" : "warning"}
+      className={className}
+      data-testid="drift-status"
+      data-status={status}
+      title={
+        status === "GONE"
+          ? "The original code is no longer on the default branch"
+          : `The original code moved to line ${line ?? "?"} on the default branch`
+      }
+    >
+      {status === "GONE" ? "gone at HEAD" : `moved to L${line ?? "?"}`}
     </StatusPill>
   );
 }

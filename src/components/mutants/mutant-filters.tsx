@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { Filter, X } from "lucide-react";
-import type { MutationOperator, MutationStatus, ReviewStatus } from "@/generated/prisma/enums";
+import type {
+  DriftStatus,
+  MutationOperator,
+  MutationStatus,
+  ReviewStatus,
+} from "@/generated/prisma/enums";
+import { DRIFT_STATUSES, DRIFT_STATUS_LABEL } from "@/domain/drift/status";
 import { MUTATION_OPERATORS } from "@/domain/mutants/operators";
 import {
   MUTATION_STATUSES,
@@ -107,6 +113,10 @@ export const MUTATION_STATUS_OPTIONS: FilterOption[] = MUTATION_STATUSES.map((s)
   value: s,
   label: MUTATION_STATUS_LABEL[s],
 }));
+export const DRIFT_STATUS_OPTIONS: FilterOption[] = DRIFT_STATUSES.map((s) => ({
+  value: s,
+  label: DRIFT_STATUS_LABEL[s],
+}));
 
 /** Builds a query string from a filter object, dropping empty values. */
 export function buildQuery(values: Record<string, string | number | undefined | null>): string {
@@ -135,6 +145,7 @@ export interface MutantFilterValues {
   q?: string;
   /** Import batch id; carried as a hidden field so it survives re-filtering. */
   batch?: string;
+  drift?: DriftStatus;
 }
 
 interface MutantFiltersProps {
@@ -207,6 +218,14 @@ export function MutantFilters({
             value={values.mutationStatus}
             options={MUTATION_STATUS_OPTIONS}
             testId="filter-mutation-status"
+          />
+        </FilterField>
+        <FilterField label="At HEAD">
+          <FilterSelect
+            name="drift"
+            value={values.drift}
+            options={DRIFT_STATUS_OPTIONS}
+            testId="filter-drift"
           />
         </FilterField>
         <FilterField label="Contributor">

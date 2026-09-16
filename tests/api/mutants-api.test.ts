@@ -33,6 +33,9 @@ function listItem(overrides: Partial<MutantListItem> = {}): MutantListItem {
     fingerprint: "f",
     duplicateOfId: null,
     pullRequestId: null,
+    driftStatus: "UNCHECKED",
+    driftLine: null,
+    driftCommitSha: null,
     createdAt: new Date("2026-09-01T10:00:00Z"),
     updatedAt: new Date("2026-09-03T10:00:00Z"),
     project: {

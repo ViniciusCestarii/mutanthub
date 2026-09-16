@@ -133,6 +133,8 @@ export default async function ProjectSettingsPage({ params }: { params: Params }
               owner={project.githubOwner}
               repo={project.githubRepository}
               isActive={project.isActive}
+              driftCheckedAt={project.driftCheckedAt?.toISOString() ?? null}
+              driftCommitSha={project.driftCommitSha}
             />
           </Section>
           <Section title="Recent changes" description="Audit trail of privileged actions">

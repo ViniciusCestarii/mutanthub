@@ -37,6 +37,8 @@ const row: ExportRow = {
   killClaims: null,
   source: "manual",
   importBatch: null,
+  driftStatus: "UNCHECKED",
+  driftCheckedCommit: null,
 };
 
 describe("CSV writer", () => {

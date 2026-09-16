@@ -23,6 +23,7 @@ import {
   validationRepository,
 } from "@/server/repositories/interaction-repository";
 import { mutantRepository } from "@/server/repositories/mutant-repository";
+import { driftRepository } from "@/server/repositories/drift-repository";
 import { statsRepository } from "@/server/repositories/stats-repository";
 import type { Project, Revision } from "@/generated/prisma/client";
 
@@ -144,6 +145,7 @@ export const projectService = {
       recentActivity,
       revisions,
       members,
+      drift,
     ] = await Promise.all([
       statsRepository.countsForProject(project.id),
       statsRepository.topFilesForProject(project.id),
@@ -153,9 +155,11 @@ export const projectService = {
       activityRepository.listRecent({ projectId: project.id, take: 10 }),
       projectRepository.listRevisionsWithMutants(project.id),
       projectRepository.listMembers(project.id),
+      driftRepository.countsForProject(project.id),
     ]);
     return {
       counts,
+      drift,
       topFiles,
       topContributors,
       recentMutants: recentMutants.items,

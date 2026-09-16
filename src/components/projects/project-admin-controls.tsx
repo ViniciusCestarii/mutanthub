@@ -3,8 +3,13 @@
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Pause, Play, RefreshCw } from "lucide-react";
-import { refreshProjectAction, setProjectActiveAction } from "@/server/actions/project-actions";
+import { GitCommitHorizontal, Loader2, Pause, Play, RefreshCw } from "lucide-react";
+import {
+  checkDriftAction,
+  refreshProjectAction,
+  setProjectActiveAction,
+} from "@/server/actions/project-actions";
+import { absoluteDateTime, shortSha } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 
 interface ProjectAdminControlsProps {
@@ -12,6 +17,8 @@ interface ProjectAdminControlsProps {
   owner: string;
   repo: string;
   isActive: boolean;
+  driftCheckedAt: string | null;
+  driftCommitSha: string | null;
 }
 
 /** Refresh metadata from GitHub and activate / deactivate the project. */
@@ -20,6 +27,8 @@ export function ProjectAdminControls({
   owner,
   repo,
   isActive,
+  driftCheckedAt,
+  driftCommitSha,
 }: ProjectAdminControlsProps) {
   const router = useRouter();
 
@@ -28,6 +37,20 @@ export function ProjectAdminControls({
       const result = await refreshProjectAction(prev, formData);
       if (result.ok) {
         toast.success(`Metadata refreshed for ${result.data.displayName}`);
+        router.refresh();
+      } else toast.error(result.error);
+      return result;
+    },
+    null,
+  );
+  const [driftResult, driftAction, checkingDrift] = useActionState(
+    async (prev: Awaited<ReturnType<typeof checkDriftAction>> | null, formData: FormData) => {
+      const result = await checkDriftAction(prev, formData);
+      if (result.ok) {
+        const d = result.data;
+        toast.success(
+          `Checked ${d.checked} mutants at ${shortSha(d.headSha)}: ${d.moved} moved, ${d.gone} gone`,
+        );
         router.refresh();
       } else toast.error(result.error);
       return result;
@@ -77,6 +100,41 @@ export function ProjectAdminControls({
             <RefreshCw className="size-3.5" aria-hidden />
           )}
           Refresh metadata
+        </Button>
+      </form>
+
+      <form
+        action={driftAction}
+        className="border-border flex flex-wrap items-center justify-between gap-3 border-t pt-4"
+      >
+        {hidden}
+        <div className="text-xs">
+          <p className="font-medium">Check drift against the default branch</p>
+          <p className="text-muted-foreground">
+            Looks up every open mutant&apos;s original code at the current HEAD and flags the ones
+            that moved or disappeared. Submitters are notified when their code is gone.
+          </p>
+          <p className="text-muted-foreground mt-0.5" data-testid="drift-last-checked">
+            {driftResult?.ok
+              ? `Just checked at ${shortSha(driftResult.data.headSha)}: ${driftResult.data.applies} apply, ${driftResult.data.moved} moved, ${driftResult.data.gone} gone.`
+              : driftCheckedAt && driftCommitSha
+                ? `Last checked ${absoluteDateTime(driftCheckedAt)} at ${shortSha(driftCommitSha)}.`
+                : "Never checked."}
+          </p>
+        </div>
+        <Button
+          type="submit"
+          variant="outline"
+          size="sm"
+          disabled={checkingDrift}
+          data-testid="check-drift"
+        >
+          {checkingDrift ? (
+            <Loader2 className="size-3.5 animate-spin" aria-hidden />
+          ) : (
+            <GitCommitHorizontal className="size-3.5" aria-hidden />
+          )}
+          Check drift
         </Button>
       </form>
 

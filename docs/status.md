@@ -45,6 +45,11 @@ What is implemented and what is planned.
 - Bulk import: administrators upload the output of a mutation testing tool (JSON or JSON Lines);
   every row is validated against the repository at its commit and against the catalogue for
   duplicates in a dry run, then imported as approved mutants with the tool recorded as source.
+- Drift checks: every open mutant is looked up at the project's current default branch and
+  flagged as applies, moved (with the new line) or gone; maintainers run it from the settings
+  page and a `CRON_SECRET`-protected job endpoint runs it on a schedule. Lists filter on it,
+  exports carry it, and submitters are notified once when their code disappears, with a pointer
+  to killing-test claims.
 - Seed data, unit/API tests, end-to-end workflow tests.
 
 ## Not yet implemented

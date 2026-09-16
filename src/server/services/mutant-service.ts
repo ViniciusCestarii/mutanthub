@@ -401,6 +401,7 @@ export const mutantService = {
         filePathContains: filter.file,
         text: filter.q,
         importBatchId: filter.batch,
+        driftStatus: filter.drift,
       },
       { page: filter.page, pageSize: filter.pageSize },
     );

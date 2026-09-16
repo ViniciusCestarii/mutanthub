@@ -60,6 +60,9 @@ function record(id: number): MutantExportRecord {
     toolName: null,
     importBatchId: null,
     importBatch: null,
+    driftStatus: "UNCHECKED" as const,
+    driftCommitSha: null,
+    driftLine: null,
   };
 }
 
@@ -110,6 +113,8 @@ describe("bulk export routes", () => {
       killClaims: "PR #15908 (CLAIMED)",
       source: "manual",
       importBatch: null,
+      driftStatus: "UNCHECKED",
+      driftCheckedCommit: null,
     });
     expect(res.headers.get("x-export-limit")).toBe("10000");
   });

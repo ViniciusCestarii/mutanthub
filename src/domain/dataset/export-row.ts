@@ -40,6 +40,10 @@ export interface ExportRow {
   source: string;
   /** Import batch id for bulk-imported mutants. */
   importBatch: string | null;
+  /** Last drift check: UNCHECKED, APPLIES, MOVED or GONE on the default branch. */
+  driftStatus: string;
+  /** Commit of the default branch the drift check ran against. */
+  driftCheckedCommit: string | null;
 }
 
 export const EXPORT_COLUMNS: ReadonlyArray<keyof ExportRow> = [
@@ -76,6 +80,8 @@ export const EXPORT_COLUMNS: ReadonlyArray<keyof ExportRow> = [
   "killClaims",
   "source",
   "importBatch",
+  "driftStatus",
+  "driftCheckedCommit",
 ];
 
 /** Hard cap on rows per export request or snapshot. */

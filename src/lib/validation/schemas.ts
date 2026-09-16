@@ -49,6 +49,8 @@ export const mutationStatusSchema = z.enum([
 
 export const observedResultSchema = z.enum(["SURVIVED", "KILLED", "UNKNOWN"]);
 
+export const driftStatusSchema = z.enum(["UNCHECKED", "APPLIES", "MOVED", "GONE"]);
+
 export const validationResultSchema = z.enum(["SURVIVED", "KILLED", "COULD_NOT_REPRODUCE"]);
 
 export const reviewActionSchema = z.enum([
@@ -284,6 +286,8 @@ export const mutantListFilterSchema = z.object({
   q: z.string().trim().max(LIMITS.searchQuery).optional(),
   /** Import batch id (bulk imports). */
   batch: z.string().trim().max(64).optional(),
+  /** Result of the last drift check against the default branch. */
+  drift: driftStatusSchema.optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
 });

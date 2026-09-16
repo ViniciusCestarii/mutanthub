@@ -8,6 +8,7 @@ import type {
   ObservedResult,
   ReviewStatus,
   StatusKind,
+  DriftStatus,
 } from "@/generated/prisma/enums";
 import { userSummarySelect } from "./user-repository";
 import { notificationRepository } from "./notification-repository";
@@ -25,6 +26,9 @@ export const mutantListSelect = {
   fingerprint: true,
   duplicateOfId: true,
   pullRequestId: true,
+  driftStatus: true,
+  driftLine: true,
+  driftCommitSha: true,
   createdAt: true,
   updatedAt: true,
   project: {
@@ -107,6 +111,9 @@ export const mutantExportSelect = {
   toolName: true,
   importBatchId: true,
   importBatch: { select: { toolVersion: true } },
+  driftStatus: true,
+  driftCommitSha: true,
+  driftLine: true,
 } satisfies Prisma.MutantSelect;
 
 export type MutantExportRecord = Prisma.MutantGetPayload<{ select: typeof mutantExportSelect }>;
@@ -127,6 +134,7 @@ export interface MutantListWhere {
   projectIdIn?: string[];
   text?: string;
   importBatchId?: string;
+  driftStatus?: DriftStatus;
 }
 
 export interface Page {
@@ -153,6 +161,7 @@ export function buildMutantWhere(w: MutantListWhere): Prisma.MutantWhereInput {
     and.push({ filePath: { contains: w.filePathContains, mode: "insensitive" } });
   if (w.createdSince) and.push({ createdAt: { gte: w.createdSince } });
   if (w.importBatchId) and.push({ importBatchId: w.importBatchId });
+  if (w.driftStatus) and.push({ driftStatus: w.driftStatus });
   if (w.text) {
     and.push({
       OR: [

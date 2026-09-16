@@ -86,6 +86,10 @@ export const env = {
   get adminGithubUsernames(): string | undefined {
     return process.env.ADMIN_GITHUB_USERNAMES || undefined;
   },
+  /** Bearer secret for scheduled jobs (`POST /api/jobs/*`); jobs are disabled when unset. */
+  get cronSecret(): string | undefined {
+    return process.env.CRON_SECRET || undefined;
+  },
   /** Optional shared Redis for rate limits and the GitHub cache (multi-instance deployments). */
   get redisUrl(): string | undefined {
     return process.env.REDIS_URL || undefined;
