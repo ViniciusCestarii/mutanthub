@@ -131,6 +131,11 @@
   html {
     @apply font-sans;
   }
+  /* Native dropdowns inherit the select's (often transparent) background, which
+     leaves white-on-white options in dark mode. */
+  option {
+    @apply bg-background text-foreground;
+  }
 }
 /* --- MutantHub additions ------------------------------------------------ */
 
