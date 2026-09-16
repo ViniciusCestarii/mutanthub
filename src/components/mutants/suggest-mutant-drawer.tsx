@@ -139,6 +139,8 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
   const [operator, setOperator] = useState<MutationOperator>("UNKNOWN");
   const [originalCode, setOriginalCode] = useState(() => rangeText(selectedLine, selectedLine));
   const [mutatedCode, setMutatedCode] = useState("");
+  /** "Delete these lines": the mutant removes the original block without replacement. */
+  const [deleteLines, setDeleteLines] = useState(false);
   const [gitDiff, setGitDiff] = useState("");
   const [observed, setObserved] = useState<"SURVIVED" | "KILLED" | "UNKNOWN">("SURVIVED");
   const [duplicates, setDuplicates] = useState<DuplicatePreviewItem[]>([]);
@@ -153,7 +155,7 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
   const canCheckDuplicates =
     open &&
     originalCode.trim().length > 0 &&
-    mutatedCode.trim().length > 0 &&
+    (deleteLines || mutatedCode.trim().length > 0) &&
     originalCode.trim() !== mutatedCode.trim();
 
   const handleEndLineChange = (value: number) => {
@@ -207,6 +209,7 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
   const resetForAnother = () => {
     if (submitted) setDismissedId(submitted.mutantId);
     setMutatedCode("");
+    setDeleteLines(false);
     setGitDiff("");
     setDuplicates([]);
     setOperator("UNKNOWN");
@@ -215,9 +218,18 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
   };
 
   const showPreview = useMemo(
-    () => originalCode.trim().length > 0 && mutatedCode.trim().length > 0,
-    [originalCode, mutatedCode],
+    () => originalCode.trim().length > 0 && (deleteLines || mutatedCode.trim().length > 0),
+    [originalCode, mutatedCode, deleteLines],
   );
+
+  const toggleDeleteLines = (checked: boolean) => {
+    setDeleteLines(checked);
+    setDuplicates([]);
+    if (checked) {
+      setMutatedCode("");
+      setOperator("STATEMENT_DELETION");
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -423,9 +435,13 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
                   <Field
                     label="Mutated code"
                     htmlFor="mutatedCode"
-                    required
+                    required={!deleteLines}
                     error={errors.mutatedCode}
-                    hint="The same lines after your change"
+                    hint={
+                      deleteLines
+                        ? "The original lines are removed without replacement"
+                        : "The same lines after your change"
+                    }
                   >
                     <Textarea
                       id="mutatedCode"
@@ -436,10 +452,22 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
                         setDuplicates([]);
                       }}
                       spellCheck={false}
-                      className="min-h-28 font-mono text-xs"
+                      readOnly={deleteLines}
+                      placeholder={deleteLines ? "(lines deleted)" : undefined}
+                      className="min-h-28 font-mono text-xs read-only:opacity-60"
                       data-testid="mutant-mutated"
-                      required
+                      required={!deleteLines}
                     />
+                    <label className="mt-1.5 flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={deleteLines}
+                        onChange={(e) => toggleDeleteLines(e.target.checked)}
+                        className="accent-primary size-3.5"
+                        data-testid="mutant-delete-lines"
+                      />
+                      Delete these lines (no replacement)
+                    </label>
                   </Field>
                 </div>
 

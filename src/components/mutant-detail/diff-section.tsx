@@ -55,6 +55,11 @@ export function DiffSection({
       }
       className={compact ? "border-0 bg-transparent [&>div]:p-0 [&>header]:px-0" : undefined}
     >
+      {mutatedCode.trim().length === 0 ? (
+        <p className="text-muted-foreground mb-2 text-xs" data-testid="deletion-note">
+          This mutant deletes the original lines without replacement.
+        </p>
+      ) : null}
       <Tabs defaultValue="side-by-side">
         <TabsList>
           <TabsTrigger value="side-by-side">Side by side</TabsTrigger>
@@ -93,7 +98,11 @@ function SnippetBlock({ label, code, tone }: { label: string; code: string; tone
         }`}
         data-testid={tone === "add" ? "mutated-code" : "original-code"}
       >
-        <code>{code}</code>
+        {code.trim().length === 0 ? (
+          <span className="text-muted-foreground italic">(lines deleted)</span>
+        ) : (
+          <code>{code}</code>
+        )}
       </pre>
     </div>
   );

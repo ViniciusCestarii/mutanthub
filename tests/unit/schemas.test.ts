@@ -49,6 +49,14 @@ describe("submitMutantSchema", () => {
     expect(parsed.environmentDescription).toBeUndefined();
   });
 
+  it("accepts an empty mutated code as a deletion", () => {
+    const parsed = submitMutantSchema.parse({ ...validSubmission, mutatedCode: "" });
+    expect(parsed.mutatedCode).toBe("");
+    const { mutatedCode: _omitted, ...withoutField } = validSubmission;
+    void _omitted;
+    expect(submitMutantSchema.parse(withoutField).mutatedCode).toBe("");
+  });
+
   it("rejects identical original and mutated code", () => {
     const result = submitMutantSchema.safeParse({
       ...validSubmission,

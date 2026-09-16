@@ -47,7 +47,7 @@ export async function previewDuplicatesAction(input: {
   mutatedCode: string;
 }): Promise<ActionResult<DuplicatePreviewItem[]>> {
   return runAction(async () => {
-    if (!input.originalCode.trim() || !input.mutatedCode.trim()) return [];
+    if (!input.originalCode.trim()) return [];
     // Public, read-only, but it runs text searches: cap it per user or client address.
     const user = await getCurrentUser();
     const requestHeaders = await headers();

@@ -58,7 +58,8 @@ export const importRowSchema = z
     startLine: z.coerce.number().int().min(1),
     endLine: z.coerce.number().int().min(1).optional(),
     originalCode: z.string().min(1, "originalCode is required").max(LIMITS.code),
-    mutatedCode: z.string().min(1, "mutatedCode is required").max(LIMITS.code),
+    /** Empty (or absent) means the original lines are deleted. */
+    mutatedCode: z.string().max(LIMITS.code).optional().default(""),
     diff: optional(LIMITS.diff),
     mutationOperator: mutationOperatorSchema.optional(),
     title: optional(LIMITS.title),

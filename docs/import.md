@@ -73,7 +73,7 @@ mocked `curl/curl` fixture is in [`docs/examples/import-example.json`](examples/
 | `startLine`                                                   | yes               | 1-based line of `originalCode` at that commit                                   |
 | `endLine`                                                     | no                | Defaults to `startLine`                                                         |
 | `originalCode`                                                | yes               | Must be found at `startLine` in the file at `commit` (whitespace-insensitive)   |
-| `mutatedCode`                                                 | yes               | Must differ from `originalCode`                                                 |
+| `mutatedCode`                                                 | yes               | Must differ from `originalCode`; empty means the lines are deleted              |
 | `diff`                                                        | no                | Unified diff; generated from the two snippets when absent                       |
 | `mutationOperator`                                            | no                | One of the catalogue values (`RELATIONAL_OPERATOR`, ...); defaults to `UNKNOWN` |
 | `title`                                                       | no                | Generated as `<operator> mutation at <file>:<line>` when absent                 |

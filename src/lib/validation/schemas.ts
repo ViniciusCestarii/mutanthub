@@ -78,7 +78,8 @@ const mutationFields = {
   title: optionalText(LIMITS.title),
   mutationOperator: mutationOperatorSchema,
   originalCode: z.string().min(1, "Original code is required").max(LIMITS.code),
-  mutatedCode: z.string().min(1, "Mutated code is required").max(LIMITS.code),
+  /** Empty means the original lines are deleted (statement deletion). */
+  mutatedCode: z.string().max(LIMITS.code).default(""),
   gitDiff: z.string().max(LIMITS.diff).default(""),
   description: optionalText(LIMITS.description),
 };

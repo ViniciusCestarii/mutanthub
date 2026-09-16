@@ -117,6 +117,19 @@ describe("prepareRow", () => {
     if (!noResult.ok) expect(noResult.issue.message).toMatch(/observedResult/);
   });
 
+  it("accepts a row without mutatedCode as a deletion", () => {
+    const result = prepareRow({ ...row, mutatedCode: "" }, 0, defaults, {});
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.row.mutatedCode).toBe("");
+    const absent = prepareRow(
+      { file: row.file, startLine: 87, originalCode: row.originalCode },
+      1,
+      defaults,
+      {},
+    );
+    expect(absent.ok).toBe(true);
+  });
+
   it("generates titles from the operator and file name", () => {
     expect(
       generateTitle({

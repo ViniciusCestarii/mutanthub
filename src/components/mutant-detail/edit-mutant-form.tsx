@@ -144,7 +144,12 @@ export function EditMutantForm({ initial }: { initial: EditMutantFormValues }) {
               data-testid="edit-original"
             />
           </Field>
-          <Field label="Mutated code" htmlFor="edit-mutated" error={errors.mutatedCode}>
+          <Field
+            label="Mutated code"
+            htmlFor="edit-mutated"
+            error={errors.mutatedCode}
+            hint="Leave empty to delete the original lines"
+          >
             <Textarea
               id="edit-mutated"
               name="mutatedCode"
@@ -156,7 +161,7 @@ export function EditMutantForm({ initial }: { initial: EditMutantFormValues }) {
             />
           </Field>
         </div>
-        {originalCode.trim() && mutatedCode.trim() ? (
+        {originalCode.trim() ? (
           <MonacoDiff
             original={originalCode}
             modified={mutatedCode}
