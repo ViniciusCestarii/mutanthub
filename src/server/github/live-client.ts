@@ -4,6 +4,7 @@ import type { GitHubTokenProvider } from "./app-auth";
 import { changedRangesFromPatch } from "@/domain/pull-requests/diff-ranges";
 import {
   GitHubError,
+  isGitHubError,
   MAX_FILE_BYTES,
   type CommitInfo,
   type FileContent,
@@ -164,14 +165,46 @@ export function createLiveGitHubClient(auth: GitHubTokenProvider): GitHubClient 
   const repoUrl = (owner: string, repo: string) =>
     `${API_BASE}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
 
+  /**
+   * Runs a request with the best credential. A user token GitHub rejects
+   * (revoked, expired) is retried once with the server credential; a user
+   * token that is out of quota gets a message that says so.
+   */
+  async function authorized<T>(
+    owner: string,
+    repo: string,
+    run: (token: string | undefined) => Promise<T>,
+  ): Promise<T> {
+    const token = await auth.getToken(owner, repo);
+    try {
+      return await run(token);
+    } catch (error) {
+      if (token && isGitHubError(error)) {
+        if (error.kind === "UNAUTHORIZED") {
+          const fallback = await auth.fallbackFor(token, owner, repo);
+          if (fallback) return run(fallback.token);
+        } else if (error.kind === "RATE_LIMITED" && (await auth.isUserToken(token))) {
+          const until = error.resetAt
+            ? ` until ${error.resetAt.toLocaleTimeString("en-GB")} UTC`
+            : "";
+          throw new GitHubError(
+            "RATE_LIMITED",
+            `Your GitHub API quota is used up${until}. Reads count against your own account while you are signed in.`,
+            error.resetAt,
+          );
+        }
+      }
+      throw error;
+    }
+  }
+
   return {
     mode: "live",
 
     getRepository(owner, repo): Promise<RepositoryInfo> {
       return getOrSet(`gh:repo:${owner}/${repo}`, defaultTtlMs(), async () => {
-        const data = await request<RepoPayload>(
-          repoUrl(owner, repo),
-          await auth.getToken(owner, repo),
+        const data = await authorized(owner, repo, (token) =>
+          request<RepoPayload>(repoUrl(owner, repo), token),
         );
         return {
           id: String(data.id),
@@ -190,9 +223,11 @@ export function createLiveGitHubClient(auth: GitHubTokenProvider): GitHubClient 
 
     getCommit(owner, repo, ref): Promise<CommitInfo> {
       return getOrSet(`gh:commit:${owner}/${repo}:${ref}`, ttlFor(ref), async () => {
-        const data = await request<CommitPayload>(
-          `${repoUrl(owner, repo)}/commits/${encodeURIComponent(ref)}`,
-          await auth.getToken(owner, repo),
+        const data = await authorized(owner, repo, (token) =>
+          request<CommitPayload>(
+            `${repoUrl(owner, repo)}/commits/${encodeURIComponent(ref)}`,
+            token,
+          ),
         );
         const date = data.commit.author?.date ? new Date(data.commit.author.date) : null;
         return {
@@ -209,9 +244,8 @@ export function createLiveGitHubClient(auth: GitHubTokenProvider): GitHubClient 
     getTree(owner, repo, ref, path): Promise<TreeEntry[]> {
       return getOrSet(`gh:tree:${owner}/${repo}:${ref}:${path}`, ttlFor(ref), async () => {
         const url = `${repoUrl(owner, repo)}/contents/${encodePath(path)}?ref=${encodeURIComponent(ref)}`;
-        const data = await request<ContentEntryPayload[] | ContentEntryPayload>(
-          url,
-          await auth.getToken(owner, repo),
+        const data = await authorized(owner, repo, (token) =>
+          request<ContentEntryPayload[] | ContentEntryPayload>(url, token),
         );
         if (!Array.isArray(data)) {
           throw new GitHubError("INVALID", `${path || "/"} is not a directory`);
@@ -230,9 +264,8 @@ export function createLiveGitHubClient(auth: GitHubTokenProvider): GitHubClient 
     getFile(owner, repo, ref, path): Promise<FileContent> {
       return getOrSet(`gh:file:${owner}/${repo}:${ref}:${path}`, ttlFor(ref), async () => {
         const url = `${repoUrl(owner, repo)}/contents/${encodePath(path)}?ref=${encodeURIComponent(ref)}`;
-        const data = await request<ContentEntryPayload[] | ContentEntryPayload>(
-          url,
-          await auth.getToken(owner, repo),
+        const data = await authorized(owner, repo, (token) =>
+          request<ContentEntryPayload[] | ContentEntryPayload>(url, token),
         );
         if (Array.isArray(data)) {
           throw new GitHubError("INVALID", `${path} is a directory`);
@@ -246,9 +279,8 @@ export function createLiveGitHubClient(auth: GitHubTokenProvider): GitHubClient 
 
     getPullRequest(owner, repo, number): Promise<PullRequestInfo> {
       return getOrSet(`gh:pull:${owner}/${repo}:${number}`, PR_TTL_MS, async () => {
-        const data = await request<PullPayload>(
-          `${repoUrl(owner, repo)}/pulls/${number}`,
-          await auth.getToken(owner, repo),
+        const data = await authorized(owner, repo, (token) =>
+          request<PullPayload>(`${repoUrl(owner, repo)}/pulls/${number}`, token),
         );
         return {
           number: data.number,
@@ -270,25 +302,26 @@ export function createLiveGitHubClient(auth: GitHubTokenProvider): GitHubClient 
 
     getPullRequestFiles(owner, repo, number): Promise<PullRequestFile[]> {
       return getOrSet(`gh:pull-files:${owner}/${repo}:${number}`, PR_TTL_MS, async () => {
-        const token = await auth.getToken(owner, repo);
-        const files: PullRequestFile[] = [];
-        for (let page = 1; page <= 30; page += 1) {
-          const batch = await request<PullFilePayload[]>(
-            `${repoUrl(owner, repo)}/pulls/${number}/files?per_page=100&page=${page}`,
-            token,
-          );
-          for (const f of batch) {
-            files.push({
-              path: f.filename,
-              status: f.status,
-              additions: f.additions,
-              deletions: f.deletions,
-              changedRanges: f.status === "removed" ? [] : changedRangesFromPatch(f.patch),
-            });
+        return authorized(owner, repo, async (token) => {
+          const files: PullRequestFile[] = [];
+          for (let page = 1; page <= 30; page += 1) {
+            const batch = await request<PullFilePayload[]>(
+              `${repoUrl(owner, repo)}/pulls/${number}/files?per_page=100&page=${page}`,
+              token,
+            );
+            for (const f of batch) {
+              files.push({
+                path: f.filename,
+                status: f.status,
+                additions: f.additions,
+                deletions: f.deletions,
+                changedRanges: f.status === "removed" ? [] : changedRangesFromPatch(f.patch),
+              });
+            }
+            if (batch.length < 100) break;
           }
-          if (batch.length < 100) break;
-        }
-        return files;
+          return files;
+        });
       });
     },
   };

@@ -7,6 +7,8 @@ export interface GitHubAccessInfo {
   source: "mock" | "app" | "token" | "anonymous";
   appConfigured: boolean;
   installUrl: string | null;
+  /** Signed-in users read with their own OAuth token (GitHub OAuth configured). */
+  userTokens: boolean;
 }
 
 const DESCRIPTION: Record<
@@ -45,6 +47,12 @@ export function GitHubAccessStatus({ access }: { access: GitHubAccessInfo }) {
         <StatusPill tone={info.tone}>{info.label}</StatusPill>
       </div>
       <p className="text-muted-foreground">{info.text}</p>
+      {access.mode === "live" && access.userTokens ? (
+        <p className="text-muted-foreground" data-testid="github-access-user-tokens">
+          Signed-in users read with their own GitHub token: 5,000 requests per hour each. The
+          credential above serves anonymous visitors and background jobs.
+        </p>
+      ) : null}
       {showInstall ? (
         <Button asChild variant="outline" size="sm">
           <a href={access.installUrl!} target="_blank" rel="noreferrer">

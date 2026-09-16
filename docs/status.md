@@ -50,6 +50,9 @@ What is implemented and what is planned.
   page and a `CRON_SECRET`-protected job endpoint runs it on a schedule. Lists filter on it,
   exports carry it, and submitters are notified once when their code disappears, with a pointer
   to killing-test claims.
+- Per-user GitHub quota: repository reads made while signed in use the user's own OAuth token
+  (kept in the encrypted session, never stored), with the app installation token, the server
+  token and anonymous access as fallbacks. Revoked tokens fall back automatically.
 - Seed data, unit/API tests, end-to-end workflow tests.
 
 ## Not yet implemented

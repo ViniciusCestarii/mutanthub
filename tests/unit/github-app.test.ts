@@ -102,6 +102,38 @@ describe("token provider", () => {
     expect(await provider.describe("nobody", "nothing")).toBe("anonymous");
   });
 
+  it("prefers the signed-in user's token and drops it once GitHub rejects it", async () => {
+    process.env.GITHUB_TOKEN = "ghp_personal";
+    delete process.env.GITHUB_APP_ID;
+    delete process.env.GITHUB_APP_PRIVATE_KEY;
+    const { createTokenProvider, clearRejectedUserTokens } =
+      await import("@/server/github/app-auth");
+    clearRejectedUserTokens();
+    const provider = createTokenProvider(async () => "gho_user");
+
+    expect(await provider.getToken("curl", "curl")).toBe("gho_user");
+    expect(await provider.isUserToken("gho_user")).toBe(true);
+    expect(await provider.isUserToken("ghp_personal")).toBe(false);
+    // describe() reports the server-side credential, which is what anonymous visitors get.
+    expect(await provider.describe("curl", "curl")).toBe("token");
+
+    expect(await provider.fallbackFor("ghp_personal", "curl", "curl")).toBeNull();
+    expect(await provider.fallbackFor("gho_user", "curl", "curl")).toEqual({
+      token: "ghp_personal",
+    });
+    expect(await provider.getToken("curl", "curl")).toBe("ghp_personal");
+
+    // Anonymous requests and failing token sources use the server chain.
+    expect(await createTokenProvider(async () => undefined).getToken("curl", "curl")).toBe(
+      "ghp_personal",
+    );
+    expect(
+      await createTokenProvider(async () => {
+        throw new Error("no request scope");
+      }).getToken("curl", "curl"),
+    ).toBe("ghp_personal");
+  });
+
   it("falls back to the personal token when the app lookup fails", async () => {
     process.env.GITHUB_TOKEN = "ghp_personal";
     vi.stubGlobal(

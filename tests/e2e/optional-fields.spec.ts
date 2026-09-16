@@ -42,7 +42,9 @@ test.describe("optional title and environment", () => {
     await expect(page.getByTestId("mutant-header")).toContainText(
       `Unknown mutation at url.c:${LINE}`,
     );
-    await expect(page.getByTestId("evidence-environment")).toHaveText("not specified");
+    await expect(page.locator('[data-testid="evidence-environment"]:visible')).toHaveText(
+      "not specified",
+    );
   });
 
   test("the reviewer sees a hint that no environment was given", async ({ page }) => {

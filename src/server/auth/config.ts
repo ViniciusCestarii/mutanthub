@@ -9,7 +9,8 @@ import { isBootstrapAdmin } from "@/lib/admin-usernames";
 /**
  * Auth.js configuration.
  *
- * - GitHub OAuth with read-only scopes is the real provider.
+ * - GitHub OAuth with read-only scopes is the real provider. The access token
+ *   stays in the encrypted JWT and is used server-side for repository reads.
  * - A credentials provider ("mock") lets developers and E2E tests sign in as
  *   any username without GitHub. It is only registered when
  *   `env.mockAuthEnabled` is true (never in production unless explicitly forced).
@@ -115,10 +116,15 @@ export const authConfig: NextAuthConfig = {
       }
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user?.internalId) {
         token.userId = user.internalId;
         token.githubUsername = user.githubUsername;
+      }
+      // Kept in the encrypted session cookie only: GitHub reads made on behalf of this
+      // user count against their own API quota. Never copied into the session object.
+      if (account?.provider === "github" && account.access_token) {
+        token.githubAccessToken = account.access_token;
       }
       return token;
     },

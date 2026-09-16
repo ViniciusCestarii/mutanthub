@@ -2,6 +2,7 @@ import "server-only";
 import { env } from "@/server/env";
 import { createLiveGitHubClient } from "./live-client";
 import { createTokenProvider } from "./app-auth";
+import { getSessionGitHubToken } from "@/server/auth/github-token";
 import { createMockGitHubClient } from "./mock-client";
 import type { GitHubClient } from "./types";
 
@@ -25,7 +26,7 @@ const globalForGitHub = globalThis as unknown as { githubClient?: GitHubClient }
 
 function createClient(): GitHubClient {
   return env.resolvedGithubMode === "live"
-    ? createLiveGitHubClient(createTokenProvider())
+    ? createLiveGitHubClient(createTokenProvider(getSessionGitHubToken))
     : createMockGitHubClient();
 }
 

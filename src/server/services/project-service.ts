@@ -307,6 +307,7 @@ export const projectService = {
         source: "mock" as const,
         appConfigured: false,
         installUrl: null,
+        userTokens: false,
       };
     }
     const source = await createTokenProvider().describe(
@@ -318,6 +319,7 @@ export const projectService = {
       source,
       appConfigured: env.githubAppConfigured,
       installUrl: githubAppInstallUrl({ owner: project.githubOwner }),
+      userTokens: env.githubOAuthConfigured,
     };
   },
 

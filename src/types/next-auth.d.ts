@@ -21,5 +21,7 @@ declare module "@auth/core/jwt" {
   interface JWT {
     userId?: string;
     githubUsername?: string;
+    /** GitHub OAuth access token; server-side only, used for that user's repository reads. */
+    githubAccessToken?: string;
   }
 }

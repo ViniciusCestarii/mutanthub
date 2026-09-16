@@ -29,26 +29,27 @@ This document records the security posture of MutantHub after the pre-release se
 
 ## Permission matrix
 
-| Action                                         | Requirement (checked in)                                                                                         |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Browse projects, code, mutants, profiles, API  | none (public read)                                                                                               |
-| Register a project                             | global admin by default; any signed-in user with `PROJECT_REGISTRATION=users`                                    |
-| Follow / unfollow                              | signed in (`projectService.setFollowing`)                                                                        |
-| Submit a mutant                                | signed in, project active (`mutantService.submitMutant`)                                                         |
-| Edit / resubmit / withdraw a submission        | submitter or admin, allowed review state (`mutantService.*`)                                                     |
-| Record a reproduction, comment                 | signed in (`interactionService.*`)                                                                               |
-| Approve / reject / needs info / duplicate      | project reviewer, maintainer or admin (`reviewService.review`)                                                   |
-| Classify outcome (killed, equivalent, invalid) | same (`reviewService.changeMutationStatus`)                                                                      |
-| Manage members, activate/deactivate, refresh   | project maintainer or admin (`projectService.*`)                                                                 |
-| Remove / demote the last maintainer            | refused (`assertNotLastMaintainer`)                                                                              |
-| Notifications                                  | owner only (`notificationService.*`, `findOwned`)                                                                |
-| Track / resync a pull request                  | signed in, project active (`pullRequestService.track`)                                                           |
-| Report / re-check a killing-test claim         | signed in (`killClaimService.create` / `refresh`)                                                                |
-| Verify or refute a claim                       | project reviewer, maintainer or admin (`killClaimService.resolve`)                                               |
-| Bulk import of tool output                     | global admin only, same-origin upload (`importService.dryRun` / `commit`)                                        |
-| Drift check against the default branch         | project maintainer or admin (`driftService.checkAsMaintainer`), or the `CRON_SECRET` bearer on `/api/jobs/drift` |
-| Check runs on GitHub                           | posted only by the app installation token; never blocking                                                        |
-| Mocked sign-in                                 | only when `AUTH_MOCK` is enabled outside production                                                              |
+| Action                                         | Requirement (checked in)                                                                                                                                                                       |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Browse projects, code, mutants, profiles, API  | none (public read)                                                                                                                                                                             |
+| Register a project                             | global admin by default; any signed-in user with `PROJECT_REGISTRATION=users`                                                                                                                  |
+| Follow / unfollow                              | signed in (`projectService.setFollowing`)                                                                                                                                                      |
+| Submit a mutant                                | signed in, project active (`mutantService.submitMutant`)                                                                                                                                       |
+| Edit / resubmit / withdraw a submission        | submitter or admin, allowed review state (`mutantService.*`)                                                                                                                                   |
+| Record a reproduction, comment                 | signed in (`interactionService.*`)                                                                                                                                                             |
+| Approve / reject / needs info / duplicate      | project reviewer, maintainer or admin (`reviewService.review`)                                                                                                                                 |
+| Classify outcome (killed, equivalent, invalid) | same (`reviewService.changeMutationStatus`)                                                                                                                                                    |
+| Manage members, activate/deactivate, refresh   | project maintainer or admin (`projectService.*`)                                                                                                                                               |
+| Remove / demote the last maintainer            | refused (`assertNotLastMaintainer`)                                                                                                                                                            |
+| Notifications                                  | owner only (`notificationService.*`, `findOwned`)                                                                                                                                              |
+| Track / resync a pull request                  | signed in, project active (`pullRequestService.track`)                                                                                                                                         |
+| Report / re-check a killing-test claim         | signed in (`killClaimService.create` / `refresh`)                                                                                                                                              |
+| Verify or refute a claim                       | project reviewer, maintainer or admin (`killClaimService.resolve`)                                                                                                                             |
+| Bulk import of tool output                     | global admin only, same-origin upload (`importService.dryRun` / `commit`)                                                                                                                      |
+| Drift check against the default branch         | project maintainer or admin (`driftService.checkAsMaintainer`), or the `CRON_SECRET` bearer on `/api/jobs/drift`                                                                               |
+| Check runs on GitHub                           | posted only by the app installation token; never blocking                                                                                                                                      |
+| Mocked sign-in                                 | only when `AUTH_MOCK` is enabled outside production                                                                                                                                            |
+| GitHub reads for a signed-in user              | their own OAuth token from the encrypted JWT; never stored in the database, never sent to the browser, never used for background jobs; falls back to server credentials when GitHub rejects it |
 
 Rules are pure functions in `src/domain/auth/permissions.ts` and are unit-tested in
 `tests/unit/permissions.test.ts`. Ownership and state rules for submissions are tested in

@@ -1,5 +1,5 @@
 import "server-only";
-import { createHmac, createSign, timingSafeEqual } from "node:crypto";
+import { createHmac, createSign, timingSafeEqual, createHash } from "node:crypto";
 import { env } from "@/server/env";
 import { getCacheStore } from "@/server/infra/cache-store";
 import { GitHubError } from "./types";
@@ -21,8 +21,61 @@ export type GitHubAuthSource = "app" | "token" | "anonymous";
 export interface GitHubTokenProvider {
   /** Token to use for a request touching `owner/repo`, or undefined for anonymous. */
   getToken(owner: string, repo: string): Promise<string | undefined>;
-  /** Which credential a request for this repository would use. */
+  /** Which server-side credential a request for this repository would use (ignores user tokens). */
   describe(owner: string, repo: string): Promise<GitHubAuthSource>;
+  /** True when `token` belongs to the signed-in user of the current request. */
+  isUserToken(token: string): Promise<boolean>;
+  /**
+   * GitHub rejected `token` (401). Returns the next credential to try when the
+   * rejected one was a user token (which is then ignored for a while), or
+   * null when there is nothing else to try.
+   */
+  fallbackFor(
+    token: string,
+    owner: string,
+    repo: string,
+  ): Promise<{ token: string | undefined } | null>;
+}
+
+/** Resolves the signed-in user's GitHub token for the current request, if any. */
+export type UserTokenSource = () => Promise<string | undefined>;
+
+/** User tokens GitHub rejected, so one revoked token does not cost a request per read. */
+const rejectedUserTokens = new Set<string>();
+const MAX_REJECTED = 1000;
+const REJECTED_TTL_MS = 60 * 60 * 1000;
+const rejectedAt = new Map<string, number>();
+
+function fingerprint(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function isRejected(token: string): boolean {
+  const key = fingerprint(token);
+  const at = rejectedAt.get(key);
+  if (at == null) return false;
+  if (Date.now() - at > REJECTED_TTL_MS) {
+    rejectedUserTokens.delete(key);
+    rejectedAt.delete(key);
+    return false;
+  }
+  return true;
+}
+
+function reject(token: string): void {
+  if (rejectedUserTokens.size >= MAX_REJECTED) {
+    rejectedUserTokens.clear();
+    rejectedAt.clear();
+  }
+  const key = fingerprint(token);
+  rejectedUserTokens.add(key);
+  rejectedAt.set(key, Date.now());
+}
+
+/** Test hook. */
+export function clearRejectedUserTokens(): void {
+  rejectedUserTokens.clear();
+  rejectedAt.clear();
 }
 
 const API_BASE = "https://api.github.com";
@@ -184,19 +237,50 @@ export async function getInstallationToken(installationId: number): Promise<stri
   return promise;
 }
 
-/** Chooses the best credential per repository: app installation, personal token, anonymous. */
-export function createTokenProvider(): GitHubTokenProvider {
+/**
+ * Chooses the credential per request and repository: the signed-in user's
+ * OAuth token (their own 5,000 requests per hour), then the app installation
+ * token, then the deployment's personal token, then anonymous.
+ */
+export function createTokenProvider(userToken?: UserTokenSource): GitHubTokenProvider {
+  async function currentUserToken(): Promise<string | undefined> {
+    if (!userToken) return undefined;
+    try {
+      const token = await userToken();
+      return token && !isRejected(token) ? token : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  async function serverToken(owner: string, repo: string): Promise<string | undefined> {
+    if (env.githubAppConfigured) {
+      try {
+        const installationId = await findInstallationId(owner, repo);
+        if (installationId) return await getInstallationToken(installationId);
+      } catch (error) {
+        console.error("[github-app] falling back to token auth:", (error as Error).message);
+      }
+    }
+    return env.githubToken;
+  }
+
   return {
     async getToken(owner, repo) {
-      if (env.githubAppConfigured) {
-        try {
-          const installationId = await findInstallationId(owner, repo);
-          if (installationId) return await getInstallationToken(installationId);
-        } catch (error) {
-          console.error("[github-app] falling back to token auth:", (error as Error).message);
-        }
+      return (await currentUserToken()) ?? serverToken(owner, repo);
+    },
+    async isUserToken(token) {
+      if (!userToken) return false;
+      try {
+        return (await userToken()) === token;
+      } catch {
+        return false;
       }
-      return env.githubToken;
+    },
+    async fallbackFor(token, owner, repo) {
+      if (!(await this.isUserToken(token))) return null;
+      reject(token);
+      console.warn("[github] a user's OAuth token was rejected; using server credentials");
+      return { token: await serverToken(owner, repo) };
     },
     async describe(owner, repo) {
       if (env.githubAppConfigured) {
