@@ -12,6 +12,7 @@ import {
   registerProjectSchema,
   reviewMutantSchema,
   submitMutantSchema,
+  githubUsernameSchema,
 } from "@/lib/validation/schemas";
 
 const validSubmission = {
@@ -211,5 +212,51 @@ describe("project settings schemas", () => {
       false,
     );
     expect(setProjectActiveSchema.parse({ projectId: "p", isActive: true }).isActive).toBe(true);
+  });
+});
+
+// Added from the mutation-testing report: kills mutants that survived the original tests.
+describe("schema transforms", () => {
+  it("normalises usernames, commit case and booleans", () => {
+    expect(githubUsernameSchema.parse("@BrunoErg")).toBe("brunoerg");
+    expect(githubUsernameSchema.parse("plain")).toBe("plain");
+    expect(() => githubUsernameSchema.parse("@@x")).toThrow();
+    const v = createValidationSchema.parse({
+      mutantId: "1",
+      result: "KILLED",
+      commitSha: "ABCDEF1",
+    });
+    expect(v.commitSha).toBe("abcdef1");
+    expect(setProjectActiveSchema.parse({ projectId: "p", isActive: "false" }).isActive).toBe(
+      false,
+    );
+    expect(setProjectActiveSchema.parse({ projectId: "p", isActive: "true" }).isActive).toBe(true);
+    expect(setProjectActiveSchema.parse({ projectId: "p", isActive: true }).isActive).toBe(true);
+  });
+
+  it("maps issues to fields, keeping the first message and a _form key for root issues", () => {
+    const result = submitMutantSchema.safeParse({});
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const errors = fieldErrors(result.error);
+      expect(errors.filePath).toBeDefined();
+      expect(Object.keys(errors)).not.toContain("_form");
+    }
+    const identical = submitMutantSchema.safeParse({
+      projectId: "p",
+      commitSha: "abcdef1",
+      filePath: "a.c",
+      startLine: "1",
+      endLine: "1",
+      mutationOperator: "UNKNOWN",
+      originalCode: "x",
+      mutatedCode: "x ",
+      testCommand: "t",
+      observedResult: "SURVIVED",
+    });
+    if (!identical.success)
+      expect(fieldErrors(identical.error)).toEqual({
+        mutatedCode: expect.stringMatching(/differ/),
+      });
   });
 });

@@ -100,3 +100,22 @@ describe("evaluateClaim", () => {
     expect(evaluateClaim({ results: ["KILLED", "KILLED"], prState: "CLOSED" })).toBe("STALE");
   });
 });
+
+// Added from the mutation-testing report: kills mutants that survived the original tests.
+describe("locateOriginalCode edge cases", () => {
+  it("normalises CRLF, rejects blank targets and scans when the hint is out of range", () => {
+    const crlf = "int a;\r\n  if (x > 1)\r\n    return 1;\r\n";
+    expect(locateOriginalCode(crlf, "if (x > 1)", 2)).toEqual({ applies: "APPLIES", line: 2 });
+    expect(locateOriginalCode(crlf, "   \n  ", 2).applies).toBe("NOT_FOUND");
+    expect(locateOriginalCode(crlf, "if (x > 1)", 0)).toEqual({ applies: "MOVED", line: 2 });
+    expect(locateOriginalCode(crlf, "if (x > 1)", 99)).toEqual({ applies: "MOVED", line: 2 });
+  });
+
+  it("requires every line of a multi-line target, in order", () => {
+    const file = "a;\nb;\nc;\n";
+    expect(locateOriginalCode(file, "b;\nc;", 2)).toEqual({ applies: "APPLIES", line: 2 });
+    expect(locateOriginalCode(file, "b;\nz;", 2).applies).toBe("NOT_FOUND");
+    expect(locateOriginalCode(file, "c;\nb;", 2).applies).toBe("NOT_FOUND");
+    expect(locateOriginalCode(file, "c;\nd;", 3).applies).toBe("NOT_FOUND"); // runs past the end
+  });
+});

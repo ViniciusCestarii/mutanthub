@@ -19,7 +19,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:mutation": "stryker run"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
@@ -50,6 +51,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
+    "@stryker-mutator/core": "^10.0.0",
+    "@stryker-mutator/vitest-runner": "^10.0.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.13.4",
     "@types/pg": "^8.23.1",
@@ -64,6 +67,6 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5",
-    "vitest": "^5.0.0"
+    "vitest": "^4.1.11"
   }
 }

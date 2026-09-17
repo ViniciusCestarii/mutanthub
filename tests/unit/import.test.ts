@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { ImportParseError, parseImportFile } from "@/domain/import/parse";
-import { IMPORT_MAX_ROWS, prepareRow } from "@/domain/import/schema";
+import {
+  IMPORT_MAX_ROWS,
+  prepareRow,
+  IMPORT_MAX_BYTES,
+  type ImportDefaults,
+} from "@/domain/import/schema";
 import { generateTitle } from "@/domain/mutants/title";
 
 const COMMIT = "e8d1c4b7a2f5e8d1c4b7a2f5e8d1c4b7a2f5e8d1";
@@ -138,5 +143,104 @@ describe("prepareRow", () => {
         startLine: 9,
       }),
     ).toBe("Relational operator mutation at b.c:9");
+  });
+});
+
+// Added from the mutation-testing report: kills mutants that survived the original tests.
+describe("import parsing edge cases", () => {
+  const row = {
+    file: "lib/escape.c",
+    startLine: 87,
+    originalCode: "  alloc = length * 3 + 1;",
+    mutatedCode: "  alloc = length * 3;",
+  };
+  const defaults: ImportDefaults = {
+    commit: "e8d1c4b7a2f5e8d1c4b7a2f5e8d1c4b7a2f5e8d1",
+    testCommand: "make test",
+    observedResult: "SURVIVED",
+  };
+
+  it("enforces the size and row limits exactly", () => {
+    const rows = Array.from({ length: IMPORT_MAX_ROWS }, () => row);
+    expect(parseImportFile(JSON.stringify(rows)).rows).toHaveLength(IMPORT_MAX_ROWS);
+    const padding = " ".repeat(IMPORT_MAX_BYTES - 2);
+    expect(() => parseImportFile(`[]${padding}`)).toThrow(/No mutants/); // exactly at the limit
+    expect(() => parseImportFile(`[]${padding} `)).toThrow(/larger than 20 MB/);
+    const error = (() => {
+      try {
+        parseImportFile("");
+      } catch (e) {
+        return e as Error;
+      }
+      return null;
+    })();
+    expect(error).toBeInstanceOf(ImportParseError);
+    expect(error?.name).toBe("ImportParseError");
+  });
+
+  it("distinguishes envelopes, JSON Lines headers and plain rows", () => {
+    expect(() => parseImportFile('{"tool": {"name": "x"}}')).toThrow(/mutants/);
+    expect(() => parseImportFile("[{}]")).not.toThrow();
+    // A header-looking line after the first row is just an invalid row, not a header.
+    const late = [JSON.stringify(row), JSON.stringify({ tool: { name: "late" } })].join("\n");
+    const parsed = parseImportFile(late);
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.tool).toEqual({});
+    // A row that carries a "file" key is never mistaken for a header.
+    const withFile = JSON.stringify({ tool: { name: "t" }, ...row });
+    expect(parseImportFile(`${withFile}\n${JSON.stringify(row)}`).rows).toHaveLength(2);
+    // A single row object on its own is one mutant, not a broken envelope.
+    expect(parseImportFile(`  ${JSON.stringify(row)}  \n\n`).rows).toHaveLength(1);
+  });
+
+  it("validates numbers, line order and defaults precedence per row", () => {
+    const issue = (raw: unknown, d = defaults) => {
+      const r = prepareRow(raw, 3, d, {});
+      return r.ok ? null : r.issue.message;
+    };
+    expect(issue({ ...row, testDurationSeconds: "abc" })).toMatch(/testDurationSeconds/);
+    expect(issue({ ...row, testDurationSeconds: -1 })).toMatch(/testDurationSeconds/);
+    expect(issue({ ...row, testDurationSeconds: 1.5 })).toMatch(/whole number/);
+    expect(issue({ ...row, testDurationSeconds: "" })).toBeNull();
+    expect(issue({ ...row, endLine: 86 })).toMatch(/^endLine: /);
+    expect(issue({ ...row, mutatedCode: `${row.originalCode}  ` })).toMatch(
+      /mutatedCode: .*differ/,
+    );
+    expect(issue({ ...row, startLine: "x" })).toMatch(/^startLine: /);
+    expect(issue(row, { ...defaults, testCommand: undefined })).toMatch(/^testCommand: missing/);
+    expect(issue(row, { ...defaults, observedResult: undefined })).toMatch(
+      /^observedResult: missing/,
+    );
+    expect(issue(row, { ...defaults, testDurationSeconds: NaN })).toMatch(
+      /testDurationSeconds: must be a number/,
+    );
+
+    const merged = prepareRow(
+      { ...row, buildCommand: "row-build", diff: "--- a\n+++ b", description: "d", notes: "n" },
+      0,
+      {
+        ...defaults,
+        buildCommand: "default-build",
+        fuzzCommand: "default-fuzz",
+        mutationOperator: "RETURN_VALUE",
+      },
+      { name: "mull" },
+    );
+    expect(merged.ok).toBe(true);
+    if (merged.ok) {
+      expect(merged.row.buildCommand).toBe("row-build");
+      expect(merged.row.fuzzCommand).toBe("default-fuzz");
+      expect(merged.row.diff).toBe("--- a\n+++ b");
+      expect(merged.row.description).toBe("d");
+      expect(merged.row.mutationOperator).toBe("RETURN_VALUE");
+      expect(merged.row.notes).toBe("n\nImported from mull.");
+      expect(merged.row.environment).toBeNull();
+    }
+    const bare = prepareRow(row, 0, defaults, {});
+    if (bare.ok) {
+      expect(bare.row.notes).toBeNull();
+      expect(bare.row.buildCommand).toBeNull();
+      expect(bare.row.diff).toBeNull();
+    }
   });
 });

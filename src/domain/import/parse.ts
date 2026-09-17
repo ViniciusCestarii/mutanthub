@@ -41,15 +41,20 @@ export function parseImportFile(text: string): ParsedImportFile {
   if (trimmed.startsWith("[")) {
     parsed = { rows: parseJson(trimmed, "array") as unknown[], tool: {}, defaults: {} };
   } else if (trimmed.startsWith("{") && looksLikeSingleObject(trimmed)) {
-    const envelope = envelopeSchema.safeParse(parseJson(trimmed, "object"));
-    if (!envelope.success) {
+    const value = parseJson(trimmed, "object");
+    const envelope = envelopeSchema.safeParse(value);
+    if (envelope.success) {
+      parsed = {
+        rows: envelope.data.mutants,
+        tool: envelope.data.tool ?? {},
+        defaults: envelope.data.defaults ?? {},
+      };
+    } else if (typeof value === "object" && value !== null && "file" in value) {
+      // A single row on its own (one-line JSON Lines file).
+      parsed = { rows: [value], tool: {}, defaults: {} };
+    } else {
       throw new ImportParseError('Expected { "tool"?, "defaults"?, "mutants": [...] }');
     }
-    parsed = {
-      rows: envelope.data.mutants,
-      tool: envelope.data.tool ?? {},
-      defaults: envelope.data.defaults ?? {},
-    };
   } else {
     parsed = parseJsonLines(trimmed);
   }

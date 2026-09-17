@@ -1,0 +1,41 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vitest.config.ts"
+  },
+  "mutate": [
+    "src/domain/**/*.ts",
+    "src/lib/validation/schemas.ts",
+    "!src/domain/mutants/operators.ts",
+    "!src/domain/mutants/status.ts"
+  ],
+  "coverageAnalysis": "perTest",
+  "ignoreStatic": true,
+  "reporters": ["clear-text", "progress", "html", "json"],
+  "jsonReporter": {
+    "fileName": "reports/mutation/report.json"
+  },
+  "thresholds": {
+    "high": 85,
+    "low": 70,
+    "break": 60
+  },
+  "tempDirName": ".stryker-tmp",
+  "concurrency": 6,
+  "timeoutMS": 20000,
+  "htmlReporter": {
+    "fileName": "reports/mutation/index.html"
+  },
+  "ignorePatterns": [
+    "/.*",
+    "docs",
+    "reports",
+    "prisma/migrations",
+    "public",
+    "test-results",
+    "playwright-report",
+    "docker-compose*.yml",
+    "Dockerfile"
+  ]
+}

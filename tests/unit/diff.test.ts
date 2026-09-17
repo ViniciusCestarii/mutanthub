@@ -68,3 +68,35 @@ describe("generateUnifiedDiff", () => {
     expect(parseDiffStats(diff)).toMatchObject({ additions: 0, deletions: 2 });
   });
 });
+
+// Added from the mutation-testing report: kills mutants that survived the original tests.
+describe("diff helpers edge cases", () => {
+  it("reads file names from CRLF diffs and skips /dev/null", () => {
+    const diff = "--- /dev/null\r\n+++ b/lib/new.c\r\n@@ -0,0 +1,2 @@\r\n+a\r\n+b\r\n";
+    expect(parseDiffStats(diff)).toMatchObject({
+      additions: 2,
+      deletions: 0,
+      files: ["lib/new.c"],
+    });
+    expect(extractDiffFilePath("+++ b/x.c\n")).toBe("x.c");
+    expect(extractDiffFilePath("+++ /dev/null\n")).toBeNull();
+    expect(extractDiffFilePath("+++   b/spaced.c  \n")).toBe("spaced.c");
+  });
+
+  it("recognises +/- bodies without hunk headers and rejects header-only text", () => {
+    expect(looksLikeUnifiedDiff("-old\n+new")).toBe(true);
+    expect(looksLikeUnifiedDiff("--- a\n+++ b")).toBe(false);
+    expect(looksLikeUnifiedDiff("   \n")).toBe(false);
+    expect(looksLikeUnifiedDiff("note: +1 here")).toBe(false);
+  });
+
+  it("strips leading slashes and normalises CRLF when generating a patch", () => {
+    const diff = generateUnifiedDiff({
+      filePath: "//lib/a.c",
+      startLine: 3,
+      originalCode: "x;\r\ny;\r\n",
+      mutatedCode: "z;\r\n",
+    });
+    expect(diff).toBe("--- a/lib/a.c\n+++ b/lib/a.c\n@@ -3,2 +3,1 @@\n-x;\n-y;\n+z;\n");
+  });
+});

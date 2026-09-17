@@ -177,3 +177,124 @@ describe("buildCheckSummary", () => {
     expect(s.text).not.toContain("#3");
   });
 });
+
+// Added from the mutation-testing report: kills mutants that survived the original tests.
+describe("check summary details", () => {
+  const pr = { number: 7, headSha: "head" };
+  const changed = { "lib/a.c": [[10, 20]] as Array<[number, number]> };
+  const mutant = (id: number, over: Partial<CheckMutant> = {}): CheckMutant => ({
+    id,
+    title: `m${id}`,
+    filePath: "lib/a.c",
+    startLine: 12,
+    endLine: 12,
+    reviewStatus: "APPROVED",
+    mutationStatus: "SURVIVED",
+    validations: 0,
+    commitSha: "head",
+    ...over,
+  });
+
+  it("explains an empty diff and links to the browser", () => {
+    const s = buildCheckSummary(pr, [], changed, "https://mh");
+    expect(s.title).toBe("No mutants recorded on the changed lines yet");
+    expect(s.text).toContain("No mutants on the changed lines. [Suggest one](https://mh/projects)");
+    expect(s.text).not.toContain("| Mutant |");
+  });
+
+  it("caps the table at 50 rows and counts the rest", () => {
+    const fifty = Array.from({ length: 50 }, (_, i) => mutant(i + 1));
+    expect(buildCheckSummary(pr, fifty, changed, "https://mh").text).not.toContain("more |");
+    const fiftyOne = [...fifty, mutant(51)];
+    const text = buildCheckSummary(pr, fiftyOne, changed, "https://mh").text;
+    expect(text).toContain("| ... | 1 more | | | |");
+    expect(text).not.toContain("[#51]");
+  });
+
+  it("marks mutants from an earlier head and counts them", () => {
+    const s = buildCheckSummary(pr, [mutant(1, { commitSha: "old" }), mutant(2)], changed, "h");
+    expect(s.counts.olderHead).toBe(1);
+    expect(s.text).toContain("`lib/a.c:12` (earlier head)");
+    expect(s.text).toContain("1 of the listed mutants refer to an earlier head");
+    const none = buildCheckSummary(pr, [mutant(2)], changed, "h");
+    expect(none.text).not.toContain("earlier head");
+  });
+
+  it("reports mutants outside the diff with correct pluralisation", () => {
+    const off = (id: number) => mutant(id, { startLine: 99, endLine: 99 });
+    const one = buildCheckSummary(pr, [mutant(1), off(2)], changed, "h");
+    expect(one.counts.offDiff).toBe(1);
+    expect(one.text).toContain("1 more mutant recorded on this pull request outside");
+    const two = buildCheckSummary(pr, [mutant(1), off(2), off(3)], changed, "h");
+    expect(two.text).toContain("2 more mutants recorded on this pull request outside");
+    expect(buildCheckSummary(pr, [mutant(1)], changed, "h").text).not.toContain("outside the");
+  });
+
+  it("adds a killing-test section only when there are claims", () => {
+    const without = buildCheckSummary(pr, [mutant(1)], changed, "h");
+    expect(without.text).not.toContain("Killing-test claims");
+    const withClaims = buildCheckSummary(pr, [mutant(1)], changed, "h", [
+      { mutantId: 1, mutantTitle: "m1", status: "CLAIMED", applies: "APPLIES" },
+    ]);
+    expect(withClaims.text).toContain("### Killing-test claims");
+    expect(withClaims.text).toContain("reported to add tests that kill");
+  });
+});
+
+// Added from the mutation-testing report: kills mutants that survived the original tests.
+describe("diff range boundaries", () => {
+  it("parses hunk headers without counts and ignores lines before the first hunk", () => {
+    const patch = [
+      "garbage +1",
+      "@@ -1 +1 @@",
+      "+only",
+      "@@ -5,2 +7,3 @@",
+      " ctx",
+      "+a",
+      "-b",
+      "+c",
+      "\\ No newline at end of file",
+    ].join("\n");
+    expect(changedRangesFromPatch(patch)).toEqual([
+      [1, 1],
+      [8, 9],
+    ]);
+    expect(changedRangesFromPatch("@@ -1,2 +3,2 @@\r\n+x\r\n+y\r\n")).toEqual([[3, 4]]);
+  });
+
+  it("treats range ends as inclusive", () => {
+    const ranges: Array<[number, number]> = [[10, 20]];
+    expect(isLineInRanges(10, ranges)).toBe(true);
+    expect(isLineInRanges(20, ranges)).toBe(true);
+    expect(isLineInRanges(9, ranges)).toBe(false);
+    expect(isLineInRanges(21, ranges)).toBe(false);
+    expect(isLineInRanges(15, undefined)).toBe(false);
+    expect(rangeContaining(10, ranges)).toEqual([10, 20]);
+    expect(rangeContaining(20, ranges)).toEqual([10, 20]);
+    expect(rangeContaining(21, ranges)).toBeNull();
+    const at = (startLine: number, endLine: number) =>
+      mutantTouchesDiff({ filePath: "f", startLine, endLine }, { f: ranges });
+    expect(at(5, 10)).toBe(true);
+    expect(at(20, 25)).toBe(true);
+    expect(at(5, 9)).toBe(false);
+    expect(at(21, 25)).toBe(false);
+    expect(mutantTouchesDiff({ filePath: "g", startLine: 10, endLine: 10 }, { f: ranges })).toBe(
+      false,
+    );
+  });
+
+  it("drops malformed ranges when reading from JSON", () => {
+    expect(
+      parseChangedRanges({
+        ok: [
+          [1, 2],
+          [3, 3],
+        ],
+        bad: [[0, 2], [5, 4], [1], ["1", "2"], [1.5, 2], "x"],
+        notArray: "nope",
+      }),
+    ).toEqual({ ok: [[1, 3]] }); // adjacent ranges merge; keys with no valid range are dropped
+    expect(parseChangedRanges([])).toEqual({});
+    expect(parseChangedRanges("x")).toEqual({});
+  });
+});

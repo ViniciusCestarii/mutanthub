@@ -17,6 +17,26 @@ information, resubmit, withdraw, killing-test reference), and a third covers pro
 (members, roles, last-maintainer protection, deactivation), and a fourth covers notifications
 (submission notice to reviewers, decision and comment notices to the submitter, mark-as-read).
 
+## Mutation testing of the test suite
+
+`npm run test:mutation` runs [StrykerJS](https://stryker-mutator.io/) over the pure modules
+(`src/domain/**` and the Zod schemas) with the Vitest runner, the same technique the platform
+catalogues. It rewrites each source file with one small change at a time (a flipped comparison,
+a removed condition, a changed string) and reruns the unit tests: a mutant that no test fails on
+has **survived** and points at an assertion that is missing. The HTML report lands in
+`reports/mutation/index.html` and lists every mutant by file and line.
+
+Scope is deliberately narrow: repositories, services and pages are covered by the API and
+end-to-end suites, and mutating them mostly produces noise. Thresholds are set in
+`stryker.config.json`; the run breaks below 60 % and reports low quality under 70 %.
+
+When a mutant survives, either add the boundary or error-branch test it reveals, or accept it
+when the change is equivalent (behaviour identical) and note why. Runs take a few minutes and are
+not part of CI.
+
+Vitest is pinned to the 4.x line: the Stryker runner does not support Vitest 5 yet (mutants are
+never activated and every one of them "survives"). Bump both together.
+
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on every push to `main` and on pull requests:
