@@ -6,7 +6,7 @@
 #   docker compose -f docker-compose.prod.yml --profile seed run --rm seed   # demo data
 #   docker compose -f docker-compose.prod.yml logs -f app
 #
-# Configure secrets in .env (AUTH_SECRET, AUTH_GITHUB_ID/SECRET, GITHUB_TOKEN, AUTH_URL).
+# Configure secrets in .env (AUTH_SECRET, AUTH_GITHUB_ID/SECRET, GITHUB_TOKEN, GITHUB_APP_*, AUTH_URL).
 
 x-app-env: &app-env
   DATABASE_URL: postgresql://mutanthub:${POSTGRES_PASSWORD:-mutanthub}@postgres:5432/mutanthub?schema=public
@@ -22,6 +22,10 @@ x-app-env: &app-env
   GITHUB_TOKEN: ${GITHUB_TOKEN:-}
   GITHUB_MODE: ${GITHUB_MODE:-auto}
   GITHUB_CACHE_TTL: ${GITHUB_CACHE_TTL:-300}
+  GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+  GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
+  GITHUB_APP_SLUG: ${GITHUB_APP_SLUG:-}
+  GITHUB_APP_WEBHOOK_SECRET: ${GITHUB_APP_WEBHOOK_SECRET:-}
   CRON_SECRET: ${CRON_SECRET:-}
 
 services:
