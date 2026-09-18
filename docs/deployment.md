@@ -25,14 +25,35 @@ Minimum for production:
 | `ADMIN_GITHUB_USERNAMES`               | Your GitHub login, so the first sign-in makes you an administrator |
 | `POSTGRES_PASSWORD`                    | A real password (defaults to `mutanthub`)                          |
 
-Leave `AUTH_MOCK` unset. `DATABASE_URL` and `REDIS_URL` are set by the compose file.
+Leave `AUTH_MOCK` unset. `DATABASE_URL` and `REDIS_URL` are set by the compose file. To reach
+the site from the internet add `SITE_ADDRESS=<your domain>` (see the next section).
 
 ## 2. First start
 
+On a VPS with a domain (an `A` record already pointing at the host), the `web` profile starts
+Caddy in front of the app: it obtains and renews a Let's Encrypt certificate, redirects HTTP to
+HTTPS, compresses responses and forwards the `Host` and `X-Forwarded-*` headers the app checks.
+
+```bash
+curl -fsSL https://get.docker.com | sh                      # once, on a fresh Ubuntu host
+git clone https://github.com/brunoerg/mutanthub.git && cd mutanthub
+cp .env.example .env                                        # then edit it (section 1)
+docker compose -f docker-compose.prod.yml --profile web up -d --build
+docker compose -f docker-compose.prod.yml logs migrate     # "All migrations have been successfully applied"
+curl -s https://$SITE_ADDRESS/api/health                    # database ok, redis ok, github live
+```
+
+Point your GitHub App (or OAuth App) at `https://<domain>/api/auth/callback/github` and the
+webhook at `https://<domain>/api/github/webhook`, and set `AUTH_URL=https://<domain>`. Open
+ports 80 and 443 in the host firewall; nothing else needs to be reachable.
+
+Without the profile the app only listens on `127.0.0.1:3000`, for your own reverse proxy or a
+tunnel. Set `APP_BIND=0.0.0.0` to expose port 3000 directly (plain HTTP, not recommended on the
+internet).
+
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
-docker compose -f docker-compose.prod.yml logs migrate     # "All migrations have been successfully applied"
-curl -s http://localhost:3000/api/health                    # database ok, redis ok, github live
+curl -s http://localhost:3000/api/health
 ```
 
 `migrate` runs `prisma migrate deploy` and exits; the app only starts after it succeeds. Sign in
@@ -43,7 +64,7 @@ starts empty.
 
 ```bash
 git pull
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml --profile web up -d --build   # drop --profile web if you run your own proxy
 docker compose -f docker-compose.prod.yml logs migrate
 ```
 
@@ -81,13 +102,16 @@ docker compose -f docker-compose.prod.yml exec -T postgres \
   `POST /api/jobs/drift` with the bearer token once a day (`JOBS_INTERVAL_SECONDS`). Any external
   scheduler works too: `curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/jobs/drift`.
   Maintainers can also run it from the project settings page.
-- Reverse proxy: terminate TLS in front of the app (Caddy, nginx, Traefik) and forward
-  `X-Forwarded-For`, which the rate limiter uses, and `X-Forwarded-Host` or the original `Host`,
-  which the upload endpoints compare with the browser's `Origin` (the configured `AUTH_URL` is
-  accepted too). The app sets its own security headers.
+- Reverse proxy: the `web` profile's Caddy does this for you. With your own proxy (nginx,
+  Traefik), terminate TLS and forward `X-Forwarded-For`, which the rate limiter uses, and
+  `X-Forwarded-Host` or the original `Host`, which the upload endpoints compare with the
+  browser's `Origin` (the configured `AUTH_URL` is accepted too). The app sets its own security
+  headers. Certificates live in the `caddy_data` volume; include it in backups if you want to
+  avoid re-issuing them after a restore.
 - Scaling: `docker compose -f docker-compose.prod.yml up -d --scale app=3` behind your proxy; the
   rate limiter and GitHub cache are shared through Redis.
-- Port: the app listens on `3000`; override the host port with `APP_PORT`.
+- Port: the app listens on `3000`, bound to `127.0.0.1` unless `APP_BIND` says otherwise;
+  override the host port with `APP_PORT`.
 
 ## Demo data (staging only)
 

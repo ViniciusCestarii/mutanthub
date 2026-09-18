@@ -1,0 +1,7 @@
+# Reverse proxy with automatic HTTPS for the compose "web" profile.
+# SITE_ADDRESS comes from .env: a domain such as mutanthub.example.com gets a
+# Let's Encrypt certificate; the default ":80" serves plain HTTP without one.
+{$SITE_ADDRESS::80} {
+	encode gzip zstd
+	reverse_proxy app:3000
+}

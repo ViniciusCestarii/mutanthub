@@ -1,7 +1,8 @@
 # Production-style stack: app + PostgreSQL + Redis, with migrations applied
 # before the app starts and an optional one-off seed.
 #
-#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml up -d --build                  # app on 127.0.0.1:3000
+#   docker compose -f docker-compose.prod.yml --profile web up -d --build    # + Caddy with HTTPS
 #   docker compose -f docker-compose.prod.yml --profile seed run --rm seed   # demo data
 #   docker compose -f docker-compose.prod.yml logs -f app
 #
@@ -76,8 +77,10 @@ services:
       target: runner
     image: mutanthub
     environment: *app-env
+    # Bound to loopback by default: reach it through Caddy (profile "web") or your own proxy.
+    # Set APP_BIND=0.0.0.0 to expose port 3000 directly.
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-3000}:3000"
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -97,6 +100,26 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+
+  # Optional reverse proxy with automatic HTTPS: docker compose -f docker-compose.prod.yml --profile web up -d
+  # Set SITE_ADDRESS in .env to your domain (DNS must already point at this host).
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    profiles: ["web"]
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
 
   # Optional scheduler for the drift check: docker compose -f docker-compose.prod.yml --profile jobs up -d
   jobs:
@@ -124,3 +147,5 @@ services:
 
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:
