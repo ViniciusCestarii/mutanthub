@@ -47,17 +47,17 @@ the details and [Configuration](docs/configuration.md) to connect real GitHub.
 
 ## Documentation
 
-| Document                                   | What it covers                                                   |
-| ------------------------------------------ | ---------------------------------------------------------------- |
-| [Getting started](docs/getting-started.md) | Local setup, seeded accounts, npm scripts                        |
-| [Configuration](docs/configuration.md)     | Environment variables, GitHub OAuth, GitHub App, admin bootstrap |
-| [Architecture](docs/architecture.md)       | Stack, layers, domain model, duplicate detection, routes         |
-| [Deployment](docs/deployment.md)           | Docker runbook: first start, upgrades, migrations, backups       |
-| [Public API](docs/api.md)                  | Read-only JSON endpoints for dataset consumers                   |
-| [Importing mutants](docs/import.md)        | Bulk import of mutation-tool output (administrators)             |
-| [Testing](docs/testing.md)                 | Unit, API and end-to-end suites; continuous integration          |
-| [Security](docs/SECURITY.md)               | Permission matrix, CSP, audit trail, deployer checklist          |
-| [Status](docs/status.md)                   | What is implemented and what is planned                          |
+| Document                                   | What it covers                                                       |
+| ------------------------------------------ | -------------------------------------------------------------------- |
+| [Getting started](docs/getting-started.md) | Local setup, seeded accounts, npm scripts                            |
+| [Configuration](docs/configuration.md)     | Environment variables, GitHub OAuth, GitHub App, admin bootstrap     |
+| [Architecture](docs/architecture.md)       | Stack, layers, domain model, duplicate detection, routes             |
+| [Deployment](docs/deployment.md)           | VPS runbook: compose stack with HTTPS, upgrades, migrations, backups |
+| [Public API](docs/api.md)                  | Read-only JSON endpoints for dataset consumers                       |
+| [Importing mutants](docs/import.md)        | Bulk import of mutation-tool output (administrators)                 |
+| [Testing](docs/testing.md)                 | Unit, API and end-to-end suites; continuous integration              |
+| [Security](docs/SECURITY.md)               | Permission matrix, CSP, audit trail, deployer checklist              |
+| [Status](docs/status.md)                   | What is implemented and what is planned                              |
 
 ## Contributing
 
