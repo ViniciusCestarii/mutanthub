@@ -39,9 +39,7 @@ test("a line can be deleted without replacement", async ({ page }) => {
   );
   await expect(page.getByTestId("mutant-header")).toContainText("Statement deletion");
   await page.getByRole("tab", { name: "Unified" }).click();
-  await expect(page.locator('[data-testid="mutated-code"]:visible')).toContainText(
-    "(lines deleted)",
-  );
+  await expect(page.locator('[data-testid="monaco-diff"]:visible')).toBeVisible();
   const patch = await page.request.get(`/api/mutants/${id}/patch`);
   expect(patch.ok()).toBe(true);
   expect(await patch.text()).toMatch(/@@ -118,1 \+118,0 @@/);

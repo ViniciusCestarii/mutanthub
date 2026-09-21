@@ -66,6 +66,50 @@ function splitLines(code: string): string[] {
   return normalized.length === 0 ? [] : normalized.split("\n");
 }
 
+export interface DiffSides {
+  original: string;
+  modified: string;
+}
+
+/**
+ * Rebuilds the two sides of a unified diff so a side-by-side viewer can show
+ * the same content as the patch (context lines and every hunk). Gaps between
+ * hunks become an ellipsis line on both sides. Returns null when the text is
+ * not a unified diff.
+ */
+export function splitUnifiedDiff(diff: string): DiffSides | null {
+  if (!looksLikeUnifiedDiff(diff)) return null;
+  const original: string[] = [];
+  const modified: string[] = [];
+  let seenHunk = false;
+  for (const line of diff.replace(/\r\n?/g, "\n").replace(/\n$/, "").split("\n")) {
+    if (HUNK_HEADER.test(line)) {
+      if (seenHunk) {
+        original.push("…");
+        modified.push("…");
+      }
+      seenHunk = true;
+      continue;
+    }
+    if (
+      line.startsWith("+++") ||
+      line.startsWith("---") ||
+      line.startsWith("diff ") ||
+      line.startsWith("index ") ||
+      line.startsWith("\\ ")
+    )
+      continue;
+    const body = line.slice(1);
+    if (line.startsWith("+")) modified.push(body);
+    else if (line.startsWith("-")) original.push(body);
+    else {
+      original.push(body);
+      modified.push(body);
+    }
+  }
+  return { original: original.join("\n"), modified: modified.join("\n") };
+}
+
 /** Extracts the first file path referenced by a unified diff, if any. */
 export function extractDiffFilePath(diff: string): string | null {
   const stats = parseDiffStats(diff);
