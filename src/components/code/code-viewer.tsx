@@ -71,6 +71,12 @@ export function CodeViewer({
   useEffect(() => {
     selectedLineRef.current = selectedLine;
   }, [selectedLine]);
+  // `onMount` is captured on the first render, when a line coming from the URL
+  // hash is not known yet; the reveal below must read the current value.
+  const initialLineRef = useRef<number | null>(initialLine ?? null);
+  useEffect(() => {
+    initialLineRef.current = initialLine ?? null;
+  }, [initialLine]);
 
   const indicatorClickable = onIndicatorClick != null;
 
@@ -170,7 +176,7 @@ export function CodeViewer({
       if (dragging) pendingRange = [start, end];
       else callbacksRef.current.onSelectRange?.(start, end);
     });
-    const target = initialLine ?? selectedLine;
+    const target = initialLineRef.current ?? selectedLineRef.current;
     if (target) {
       editor.revealLineInCenter(target);
       editor.setPosition({ lineNumber: target, column: 1 });
