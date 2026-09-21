@@ -66,6 +66,8 @@ export function CodeViewer({
     selectedLineRef.current = selectedLine;
   }, [selectedLine]);
 
+  const indicatorClickable = onIndicatorClick != null;
+
   const applyDecorations = useCallback(() => {
     const editor = editorRef.current;
     const monaco = monacoRef.current;
@@ -91,7 +93,9 @@ export function CodeViewer({
         options: {
           isWholeLine: true,
           className: "mh-line-mutant",
-          glyphMarginClassName: `mh-glyph-mutant mh-count-${bucket}`,
+          glyphMarginClassName: `mh-glyph-mutant mh-count-${bucket}${
+            indicatorClickable ? " mh-glyph-clickable" : ""
+          }`,
           glyphMarginHoverMessage: {
             value: `${count} mutant${count === 1 ? "" : "s"} on this line`,
           },
@@ -110,7 +114,7 @@ export function CodeViewer({
     }
     if (!decorationsRef.current) decorationsRef.current = editor.createDecorationsCollection();
     decorationsRef.current.set(decorations);
-  }, [mutantCounts, selectedLine, changedRanges]);
+  }, [mutantCounts, selectedLine, changedRanges, indicatorClickable]);
 
   useEffect(() => {
     applyDecorations();

@@ -200,6 +200,8 @@
 }
 .mh-glyph-mutant {
   position: relative;
+}
+.mh-glyph-mutant.mh-glyph-clickable {
   cursor: pointer;
 }
 .mh-glyph-mutant::after {
