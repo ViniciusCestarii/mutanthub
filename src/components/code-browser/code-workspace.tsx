@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Bug, ExternalLink, FileWarning, FolderTree, GitCommitHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -66,26 +67,38 @@ function hashFor({ start, end }: LineRange): string {
  * close the drawer.
  */
 function useSelectedRange(): [LineRange | null, (start: number, end?: number) => void] {
+  const router = useRouter();
   const [range, setRange] = useState<LineRange | null>(null);
+  // The last hash asked of the router: router.replace is async, so
+  // window.location.hash lags behind it during a drag.
+  const requestedHash = useRef<string | null>(null);
 
   useEffect(() => {
-    const sync = () => setRange(rangeFromHash(window.location.hash));
+    const sync = () => {
+      requestedHash.current = window.location.hash;
+      setRange(rangeFromHash(window.location.hash));
+    };
     sync();
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, []);
 
-  const selectRange = useCallback((start: number, end = start) => {
-    const next = { start, end: Math.max(start, end) };
-    setRange(next);
-    const hash = hashFor(next);
-    if (window.location.hash !== hash)
-      window.history.replaceState(
-        window.history.state,
-        "",
-        `${window.location.pathname}${window.location.search}${hash}`,
-      );
-  }, []);
+  const selectRange = useCallback(
+    (start: number, end = start) => {
+      const next = { start, end: Math.max(start, end) };
+      setRange(next);
+      const hash = hashFor(next);
+      // Through the router, not history.replaceState: a later refresh restores
+      // the canonical URL, and a hash it never saw would reset the selection.
+      if ((requestedHash.current ?? window.location.hash) !== hash) {
+        requestedHash.current = hash;
+        router.replace(`${window.location.pathname}${window.location.search}${hash}`, {
+          scroll: false,
+        });
+      }
+    },
+    [router],
+  );
 
   return [range, selectRange];
 }

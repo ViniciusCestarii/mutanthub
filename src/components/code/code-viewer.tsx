@@ -169,9 +169,16 @@ export function CodeViewer({
       }
     });
     // A drag ends on the line below the last selected one when it stops at column 1.
-    editor.onDidChangeCursorSelection(({ selection }) => {
+    editor.onDidChangeCursorSelection(({ selection, reason }) => {
+      // only a real selection may change the range.
+      if (reason === monaco.editor.CursorChangeReason.ContentFlush) return;
       const start = Math.min(selection.startLineNumber, selection.endLineNumber);
       const last = Math.max(selection.startLineNumber, selection.endLineNumber);
+      if (last === start) {
+        // A click: onMouseDown already selected the line.
+        pendingRange = null;
+        return;
+      }
       const end = last > start && selection.endColumn === 1 ? last - 1 : last;
       if (dragging) pendingRange = [start, end];
       else callbacksRef.current.onSelectRange?.(start, end);
