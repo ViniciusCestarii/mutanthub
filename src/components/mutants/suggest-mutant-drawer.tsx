@@ -249,7 +249,7 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full gap-0 p-0 sm:max-w-3xl"
+        className="w-full gap-0 p-0 data-[side=right]:sm:max-w-3xl data-[side=right]:lg:max-w-4xl data-[side=right]:xl:max-w-5xl"
         data-testid="suggest-mutant-drawer"
       >
         <SheetHeader className="border-border border-b px-5 py-3">
