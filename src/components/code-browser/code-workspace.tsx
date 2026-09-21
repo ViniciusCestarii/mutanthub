@@ -42,34 +42,52 @@ export interface CodeWorkspaceProps {
   pullRequest?: BrowserPullRequest | null;
 }
 
-function lineFromHash(hash: string): number | null {
-  const match = hash.match(/^#L(\d+)/);
-  return match ? Number(match[1]) : null;
+interface LineRange {
+  start: number;
+  end: number;
+}
+
+function rangeFromHash(hash: string): LineRange | null {
+  const match = hash.match(/^#L(\d+)(?:-L?(\d+))?/);
+  if (!match) return null;
+  const start = Number(match[1]);
+  const end = match[2] ? Number(match[2]) : start;
+  return { start, end: Math.max(start, end) };
+}
+
+function hashFor({ start, end }: LineRange): string {
+  return end > start ? `#L${start}-L${end}` : `#L${start}`;
 }
 
 /**
- * The selected line is React state mirrored into the URL hash (#L123) so links
- * are shareable. State (not the hash) is the source of truth: a router refresh
- * after a submission must not drop the selection or close the drawer.
+ * The selected lines are React state mirrored into the URL hash (#L12 or
+ * #L12-L20) so links are shareable. State (not the hash) is the source of
+ * truth: a router refresh after a submission must not drop the selection or
+ * close the drawer.
  */
-function useSelectedLine(): [number | null, (line: number) => void] {
-  const [selectedLine, setSelectedLine] = useState<number | null>(null);
+function useSelectedRange(): [LineRange | null, (start: number, end?: number) => void] {
+  const [range, setRange] = useState<LineRange | null>(null);
 
   useEffect(() => {
-    const sync = () => setSelectedLine(lineFromHash(window.location.hash));
+    const sync = () => setRange(rangeFromHash(window.location.hash));
     sync();
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, []);
 
-  const selectLine = useCallback((line: number) => {
-    setSelectedLine(line);
-    const url = `${window.location.pathname}${window.location.search}#L${line}`;
-    if (window.location.hash !== `#L${line}`)
-      window.history.replaceState(window.history.state, "", url);
+  const selectRange = useCallback((start: number, end = start) => {
+    const next = { start, end: Math.max(start, end) };
+    setRange(next);
+    const hash = hashFor(next);
+    if (window.location.hash !== hash)
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${window.location.pathname}${window.location.search}${hash}`,
+      );
   }, []);
 
-  return [selectedLine, selectLine];
+  return [range, selectRange];
 }
 
 /**
@@ -87,7 +105,9 @@ export function CodeWorkspace({
   signedIn,
   pullRequest = null,
 }: CodeWorkspaceProps) {
-  const [selectedLine, selectLine] = useSelectedLine();
+  const [selectedRange, selectRange] = useSelectedRange();
+  const selectedLine = selectedRange?.start ?? null;
+  const selectLine = useCallback((line: number) => selectRange(line), [selectRange]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [treeOpen, setTreeOpen] = useState(false);
   const [mutantsPanelOpen, setMutantsPanelOpen] = useState(false);
@@ -102,7 +122,9 @@ export function CodeWorkspace({
   const language = languageForPath(path);
   const changedBlock =
     selectedLine != null ? rangeContaining(selectedLine, pullRequest?.ranges ?? []) : null;
-  const lineInDiff = changedBlock != null;
+  // The whole selection must sit in the changed block, which also caps the drawer's end line.
+  const lineInDiff =
+    changedBlock != null && selectedRange != null && selectedRange.end <= changedBlock[1];
 
   const mutantCounts = useMemo(() => {
     const counts: Record<number, number> = {};
@@ -116,7 +138,10 @@ export function CodeWorkspace({
     ref: gitRef,
     line: selectedLine ?? undefined,
   });
-  const selectedLineText = selectedLine && lines.length ? (lines[selectedLine - 1] ?? "") : null;
+  const selectedLineText =
+    selectedRange && lines.length
+      ? lines.slice(selectedRange.start - 1, selectedRange.end).join("\n")
+      : null;
 
   const treeNode = (onNavigate?: () => void) => (
     <FileTree
@@ -137,6 +162,7 @@ export function CodeWorkspace({
       mutants={file.mutants}
       mutantsAtOtherRevisions={file.mutantsAtOtherRevisions}
       selectedLine={selectedLine}
+      selectedEndLine={selectedRange?.end}
       selectedLineText={selectedLineText}
       onSelectLine={(line) => {
         selectLine(line);
@@ -286,7 +312,9 @@ export function CodeWorkspace({
                 language={language}
                 mutantCounts={mutantCounts}
                 selectedLine={selectedLine}
+                selectedEndLine={selectedRange?.end}
                 onSelectLine={selectLine}
+                onSelectRange={selectRange}
                 onIndicatorClick={isDesktop ? undefined : () => setMutantsPanelOpen(true)}
                 initialLine={selectedLine}
                 changedRanges={pullRequest?.atHead ? pullRequest.ranges : undefined}
@@ -366,7 +394,7 @@ export function CodeWorkspace({
 
       {file && selectedLine ? (
         <SuggestMutantDrawer
-          key={`${commit.sha}:${file.path}:${selectedLine}`}
+          key={`${commit.sha}:${file.path}:${selectedLine}-${selectedRange?.end}`}
           open={drawerOpen}
           onOpenChange={setDrawerOpen}
           project={{
@@ -380,6 +408,7 @@ export function CodeWorkspace({
           language={language}
           lines={lines}
           selectedLine={selectedLine}
+          selectedEndLine={selectedRange?.end}
           pullRequestNumber={pullRequest?.atHead ? pullRequest.number : null}
           lineLimit={pullRequest?.atHead && changedBlock ? changedBlock[1] : null}
         />

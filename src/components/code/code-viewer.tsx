@@ -25,7 +25,11 @@ export interface CodeViewerProps {
   /** Number of mutants per 1-based line; drives the gutter indicators. */
   mutantCounts: Record<number, number>;
   selectedLine: number | null;
+  /** Last line of the selection; defaults to `selectedLine`. */
+  selectedEndLine?: number | null;
   onSelectLine: (line: number) => void;
+  /** Reports a dragged line selection; start === end for a plain click. */
+  onSelectRange?: (start: number, end: number) => void;
   onIndicatorClick?: (line: number) => void;
   /** Line to reveal when the editor first mounts. */
   initialLine?: number | null;
@@ -46,7 +50,9 @@ export function CodeViewer({
   language,
   mutantCounts,
   selectedLine,
+  selectedEndLine,
   onSelectLine,
+  onSelectRange,
   onIndicatorClick,
   initialLine,
   changedRanges,
@@ -56,10 +62,10 @@ export function CodeViewer({
   const editorRef = useRef<IEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const decorationsRef = useRef<MonacoEditorNs.IEditorDecorationsCollection | null>(null);
-  const callbacksRef = useRef({ onSelectLine, onIndicatorClick });
+  const callbacksRef = useRef({ onSelectLine, onSelectRange, onIndicatorClick });
   useEffect(() => {
-    callbacksRef.current = { onSelectLine, onIndicatorClick };
-  }, [onSelectLine, onIndicatorClick]);
+    callbacksRef.current = { onSelectLine, onSelectRange, onIndicatorClick };
+  }, [onSelectLine, onSelectRange, onIndicatorClick]);
   // Latest selection, readable from Monaco event handlers registered at mount.
   const selectedLineRef = useRef<number | null>(selectedLine);
   useEffect(() => {
@@ -104,7 +110,7 @@ export function CodeViewer({
     }
     if (selectedLine) {
       decorations.push({
-        range: new monaco.Range(selectedLine, 1, selectedLine, 1),
+        range: new monaco.Range(selectedLine, 1, Math.max(selectedEndLine ?? 0, selectedLine), 1),
         options: {
           isWholeLine: true,
           className: "mh-line-selected",
@@ -114,7 +120,7 @@ export function CodeViewer({
     }
     if (!decorationsRef.current) decorationsRef.current = editor.createDecorationsCollection();
     decorationsRef.current.set(decorations);
-  }, [mutantCounts, selectedLine, changedRanges, indicatorClickable]);
+  }, [mutantCounts, selectedLine, changedRanges, selectedEndLine, indicatorClickable]);
 
   useEffect(() => {
     applyDecorations();
@@ -123,7 +129,22 @@ export function CodeViewer({
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    // While the mouse is down a drag only records its range; it is reported
+    // once on release, so a long drag does not re-render and navigate per move.
+    let dragging = false;
+    let pendingRange: [number, number] | null = null;
     editor.onMouseDown((e) => {
+      dragging = true;
+      pendingRange = null;
+      window.addEventListener(
+        "mouseup",
+        () => {
+          dragging = false;
+          if (pendingRange) callbacksRef.current.onSelectRange?.(...pendingRange);
+          pendingRange = null;
+        },
+        { once: true },
+      );
       const line = e.target.position?.lineNumber;
       if (!line) return;
       const type = e.target.type;
@@ -140,6 +161,14 @@ export function CodeViewer({
       ) {
         callbacksRef.current.onSelectLine(line);
       }
+    });
+    // A drag ends on the line below the last selected one when it stops at column 1.
+    editor.onDidChangeCursorSelection(({ selection }) => {
+      const start = Math.min(selection.startLineNumber, selection.endLineNumber);
+      const last = Math.max(selection.startLineNumber, selection.endLineNumber);
+      const end = last > start && selection.endColumn === 1 ? last - 1 : last;
+      if (dragging) pendingRange = [start, end];
+      else callbacksRef.current.onSelectRange?.(start, end);
     });
     const target = initialLine ?? selectedLine;
     if (target) {

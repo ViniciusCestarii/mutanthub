@@ -8,6 +8,7 @@ import { expect, test, type Page } from "@playwright/test";
  */
 
 const FILE_URL = "/projects/curl/curl/code/lib/url.c";
+const OLD_COMMIT = "a4c7e1f9b3d5a7c9e1f3b5d7a9c1e3f5b7d9a1c3";
 const LINE = 120;
 
 async function signInAs(page: Page, username: string) {
@@ -22,21 +23,22 @@ test.describe.configure({ mode: "serial" });
 
 test.describe("drift check", () => {
   let goneId: number;
-  const title = `Drift e2e ${Date.now()}`;
 
-  test("a mutant whose original code was edited away is submitted", async ({ page }) => {
+  // Real drift: L120 of lib/url.c reads `if(digits >= MAX_PORT_DIGITS)` at the
+  // older commit and `if(digits > 5)` at the head (see fixtures/overlays), so a
+  // mutant submitted against the older revision no longer applies at HEAD.
+  test("a mutant submitted against an older revision is out of date at HEAD", async ({ page }) => {
     await signInAs(page, "frank");
-    await page.goto(`${FILE_URL}#L${LINE}`);
+    await page.goto(`${FILE_URL}?ref=${OLD_COMMIT}#L${LINE}`);
     await expect(page.locator('[data-testid="status-selected-line"]:visible')).toHaveText(
       `L${LINE}`,
     );
     await page.waitForLoadState("networkidle");
-    await page.getByTestId("mutants-panel").getByTestId("suggest-mutant").click();
     const drawer = page.getByTestId("suggest-mutant-drawer");
-    await drawer.getByTestId("mutant-title").fill(title);
-    // Original code that does not exist in the file: the check must report it as gone.
-    await drawer.getByTestId("mutant-original").fill("  this_line_never_existed(42);");
-    await drawer.getByTestId("mutant-mutated").fill("  this_line_never_existed(43);");
+    await page.getByTestId("mutants-panel").getByTestId("suggest-mutant").click();
+    await expect(drawer.getByTestId("mutant-original")).toHaveValue(/MAX_PORT_DIGITS/);
+    await drawer.getByTestId("mutant-title").fill(`Drift e2e ${Date.now()}`);
+    await drawer.getByTestId("mutant-mutated").fill("    if(digits > MAX_PORT_DIGITS)");
     await drawer.getByTestId("mutant-test-command").fill("make test-ci");
     await drawer.getByTestId("mutant-submit").click();
     const href = await drawer.getByTestId("mutant-success-link").getAttribute("href");

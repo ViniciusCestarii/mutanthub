@@ -20,6 +20,8 @@ interface MutantsPanelProps {
   mutants: BrowserMutant[];
   mutantsAtOtherRevisions: number;
   selectedLine: number | null;
+  /** Last line of the selection; defaults to `selectedLine`. */
+  selectedEndLine?: number | null;
   selectedLineText: string | null;
   onSelectLine: (line: number) => void;
   onSuggest: () => void;
@@ -101,6 +103,7 @@ export function MutantsPanel({
   mutants,
   mutantsAtOtherRevisions,
   selectedLine,
+  selectedEndLine,
   selectedLineText,
   onSelectLine,
   onSuggest,
@@ -111,6 +114,10 @@ export function MutantsPanel({
   const onLine = selectedLine
     ? mutants.filter((m) => m.startLine <= selectedLine && selectedLine <= m.endLine)
     : [];
+  const rangeLabel =
+    selectedLine && selectedEndLine && selectedEndLine > selectedLine
+      ? `L${selectedLine}–L${selectedEndLine}`
+      : `L${selectedLine}`;
 
   return (
     <div className="flex h-full flex-col" data-testid="mutants-panel">
@@ -122,7 +129,7 @@ export function MutantsPanel({
           <div>
             <div className="flex items-center gap-2">
               <span className="rounded bg-sky-500/10 px-1.5 font-mono text-xs font-medium text-sky-700 dark:text-sky-300">
-                L{selectedLine}
+                {rangeLabel}
               </span>
               <span className="text-muted-foreground text-xs">
                 {onLine.length === 0
@@ -174,12 +181,12 @@ export function MutantsPanel({
                 disabled={Boolean(pullRequest?.atHead && !pullRequest.lineInDiff)}
                 data-testid="suggest-mutant"
               >
-                <Plus className="size-3.5" aria-hidden /> Suggest mutant
+                <Plus className="size-3.5" aria-hidden /> Suggest mutant {rangeLabel}
               </Button>
             ) : (
               <div className="mt-2 space-y-1.5">
                 <Button className="w-full" size="sm" disabled data-testid="suggest-mutant">
-                  <Plus className="size-3.5" aria-hidden /> Suggest mutant
+                  <Plus className="size-3.5" aria-hidden /> Suggest mutant {rangeLabel}
                 </Button>
                 <Link
                   href={signInHref}

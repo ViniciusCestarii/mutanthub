@@ -29,6 +29,7 @@ const prisma = new PrismaClient({
 });
 
 const FIXTURES_DIR = path.join(process.cwd(), "src/server/github/fixtures/repos");
+const OVERLAYS_DIR = path.join(process.cwd(), "src/server/github/fixtures/overlays");
 
 // ---------------------------------------------------------------------------
 // Users
@@ -983,11 +984,19 @@ const MUTANTS: SeedMutant[] = [
 
 const fileCache = new Map<string, string[]>();
 
-async function fixtureLines(owner: string, repo: string, file: string): Promise<string[]> {
-  const key = `${owner}/${repo}/${file}`;
+/** Mirrors the mock client: a commit with its own copy of the file wins. */
+async function fixtureLines(
+  owner: string,
+  repo: string,
+  file: string,
+  sha: string,
+): Promise<string[]> {
+  const key = `${owner}/${repo}/${sha}/${file}`;
   const cached = fileCache.get(key);
   if (cached) return cached;
-  const content = await readFile(path.join(FIXTURES_DIR, owner, repo, file), "utf8");
+  const content = await readFile(path.join(OVERLAYS_DIR, owner, repo, sha, file), "utf8").catch(
+    () => readFile(path.join(FIXTURES_DIR, owner, repo, file), "utf8"),
+  );
   const lines = content.replace(/\r\n?/g, "\n").split("\n");
   fileCache.set(key, lines);
   return lines;
@@ -1101,7 +1110,12 @@ async function main() {
     const project = projects[m.project];
     const mock = MOCK_REPOS[m.project];
     const revisionId = revisionIds[m.project][m.commit];
-    const lines = await fixtureLines(mock.info.owner, mock.info.name, m.file);
+    const lines = await fixtureLines(
+      mock.info.owner,
+      mock.info.name,
+      m.file,
+      mock.commits[m.commit].sha,
+    );
     const original = lines[m.line - 1];
     if (original === undefined) throw new Error(`Line ${m.line} missing in ${m.file}`);
     if (!original.includes(m.from)) {

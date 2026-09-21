@@ -49,6 +49,8 @@ export interface SuggestMutantDrawerProps {
   /** All lines of the file (1-based indexing is applied internally). */
   lines: string[];
   selectedLine: number;
+  /** Last line of the selection in the viewer; defaults to a single line. */
+  selectedEndLine?: number;
   /** Called after a successful submission so the parent can refresh indicators. */
   onSubmitted?: (mutantId: number) => void;
   /** Scopes the submission to a tracked pull request (pull request mode). */
@@ -120,6 +122,7 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
     language,
     lines,
     selectedLine,
+    selectedEndLine,
     onSubmitted,
     pullRequestNumber = null,
     lineLimit = null,
@@ -137,11 +140,17 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
   const rangeText = (from: number, to: number) =>
     lines.slice(from - 1, Math.max(from, to)).join("\n");
 
-  // The parent keys this component by commit + file + line, so initial state can come straight from props.
-  const [endLine, setEndLine] = useState(selectedLine);
+  const maxEndLine = Math.min(lines.length || selectedLine, lineLimit ?? Number.MAX_SAFE_INTEGER);
+  // The parent keys this component by commit + file + selection, so initial state can come straight from props.
+  const initialEndLine = Math.min(
+    Math.max(selectedEndLine ?? selectedLine, selectedLine),
+    maxEndLine,
+  );
+  const [endLine, setEndLine] = useState(initialEndLine);
   const [operator, setOperator] = useState<MutationOperator>("UNKNOWN");
-  const [originalCode, setOriginalCode] = useState(() => rangeText(selectedLine, selectedLine));
-  const [mutatedCode, setMutatedCode] = useState("");
+  /** Always the file's own lines: the range is what the contributor edits, not the text. */
+  const originalCode = rangeText(selectedLine, endLine);
+  const [mutatedCode, setMutatedCode] = useState(originalCode);
   /** "Delete these lines": the mutant removes the original block without replacement. */
   const [deleteLines, setDeleteLines] = useState(false);
   const [gitDiff, setGitDiff] = useState("");
@@ -161,11 +170,12 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
     (deleteLines || mutatedCode.trim().length > 0) &&
     originalCode.trim() !== mutatedCode.trim();
 
-  const maxEndLine = Math.min(lines.length || selectedLine, lineLimit ?? Number.MAX_SAFE_INTEGER);
   const handleEndLineChange = (value: number) => {
-    const clamped = Math.min(Math.max(value, selectedLine), maxEndLine);
-    setEndLine(clamped);
-    setOriginalCode(rangeText(selectedLine, clamped));
+    const next = Math.min(Math.max(value, selectedLine), maxEndLine);
+    setEndLine(next);
+    // An untouched copy of the original follows the range; an edited one is kept.
+    if (mutatedCode === originalCode) setMutatedCode(rangeText(selectedLine, next));
+    setDuplicates([]);
   };
 
   // Debounced duplicate preview (results are cleared by the code onChange handlers).
@@ -212,7 +222,7 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
 
   const resetForAnother = () => {
     if (submitted) setDismissedId(submitted.mutantId);
-    setMutatedCode("");
+    setMutatedCode(originalCode);
     setDeleteLines(false);
     setGitDiff("");
     setDuplicates([]);
@@ -424,18 +434,15 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
                     htmlFor="originalCode"
                     required
                     error={errors.originalCode}
-                    hint="Pre-filled from the selected line(s)"
+                    hint={`Exactly L${selectedLine}${endLine > selectedLine ? `–L${endLine}` : ""} of the file; change the end line to cover more`}
                   >
                     <Textarea
                       id="originalCode"
                       name="originalCode"
                       value={originalCode}
-                      onChange={(e) => {
-                        setOriginalCode(e.target.value);
-                        setDuplicates([]);
-                      }}
+                      readOnly
                       spellCheck={false}
-                      className="min-h-28 font-mono text-xs"
+                      className="min-h-28 font-mono text-xs read-only:opacity-60"
                       data-testid="mutant-original"
                       required
                     />
