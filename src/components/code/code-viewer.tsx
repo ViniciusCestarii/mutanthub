@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useTheme } from "@/components/layout/theme-provider";
 import type { Monaco, OnMount } from "@monaco-editor/react";
@@ -22,10 +22,14 @@ const Editor = dynamic(() => import("@monaco-editor/react").then((m) => m.Editor
 export interface CodeViewerProps {
   content: string;
   language: string;
-  /** Number of mutants per 1-based line; drives the gutter indicators. */
-  mutantCounts: Record<number, number>;
+  /** Inclusive 1-based line spans of the file's mutants; drives the gutter indicators. */
+  mutantRanges: Array<{ startLine: number; endLine: number }>;
   selectedLine: number | null;
+  /** Last line of the selection; defaults to `selectedLine`. */
+  selectedEndLine?: number | null;
   onSelectLine: (line: number) => void;
+  /** Reports a dragged line selection; start === end for a plain click. */
+  onSelectRange?: (start: number, end: number) => void;
   onIndicatorClick?: (line: number) => void;
   /** Line to reveal when the editor first mounts. */
   initialLine?: number | null;
@@ -44,29 +48,63 @@ type IEditor = MonacoEditorNs.IStandaloneCodeEditor;
 export function CodeViewer({
   content,
   language,
-  mutantCounts,
+  mutantRanges,
   selectedLine,
+  selectedEndLine,
   onSelectLine,
+  onSelectRange,
   onIndicatorClick,
   initialLine,
   changedRanges,
   className,
 }: CodeViewerProps) {
   const { resolvedTheme } = useTheme();
+  // Monaco mounts asynchronously: flipping this re-runs the effects below with
+  // the current selection, which `onMount`'s own closure may predate.
+  const [editorReady, setEditorReady] = useState(false);
   const editorRef = useRef<IEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const decorationsRef = useRef<MonacoEditorNs.IEditorDecorationsCollection | null>(null);
-  const callbacksRef = useRef({ onSelectLine, onIndicatorClick });
+  const callbacksRef = useRef({ onSelectLine, onSelectRange, onIndicatorClick });
   useEffect(() => {
-    callbacksRef.current = { onSelectLine, onIndicatorClick };
-  }, [onSelectLine, onIndicatorClick]);
+    callbacksRef.current = { onSelectLine, onSelectRange, onIndicatorClick };
+  }, [onSelectLine, onSelectRange, onIndicatorClick]);
   // Latest selection, readable from Monaco event handlers registered at mount.
   const selectedLineRef = useRef<number | null>(selectedLine);
+  const selectedEndLineRef = useRef<number | null>(selectedEndLine ?? null);
   useEffect(() => {
     selectedLineRef.current = selectedLine;
-  }, [selectedLine]);
+    selectedEndLineRef.current = selectedEndLine ?? null;
+  }, [selectedLine, selectedEndLine]);
+  // `onMount` is captured on the first render, when a line coming from the URL
+  // hash is not known yet; the reveal below must read the current value.
+  const initialLineRef = useRef<number | null>(initialLine ?? null);
+  useEffect(() => {
+    initialLineRef.current = initialLine ?? null;
+  }, [initialLine]);
 
   const indicatorClickable = onIndicatorClick != null;
+
+  /**
+   * Mirrors a selection that came from outside the editor (a link with
+   * #L12-L20, the mutants panel) into Monaco's own selection. Skipped while the
+   * editor has focus, so it never fights a drag in progress.
+   */
+  const syncEditorSelection = useCallback(() => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    const start = selectedLineRef.current;
+    if (!editor || !monaco || !start || editor.hasTextFocus()) return;
+    const end = Math.max(selectedEndLineRef.current ?? start, start);
+    const current = editor.getSelection();
+    if (current && current.startLineNumber === start && current.endLineNumber === end) return;
+    const endColumn = editor.getModel()?.getLineMaxColumn(end) ?? 1;
+    editor.setSelection(new monaco.Range(start, 1, end, endColumn));
+  }, []);
+
+  useEffect(() => {
+    syncEditorSelection();
+  }, [syncEditorSelection, selectedLine, selectedEndLine, editorReady]);
 
   const applyDecorations = useCallback(() => {
     const editor = editorRef.current;
@@ -84,27 +122,39 @@ export function CodeViewer({
         },
       });
     }
-    for (const [lineStr, count] of Object.entries(mutantCounts)) {
-      const line = Number(lineStr);
-      if (!count || line < 1) continue;
+    // One tinted block per mutant, plus a bracket in the margin when it spans
+    // several lines, so a multi-line mutant does not read as one per line.
+    const startingAt = new Map<number, number>();
+    for (const { startLine, endLine } of mutantRanges) {
+      if (startLine < 1) continue;
+      startingAt.set(startLine, (startingAt.get(startLine) ?? 0) + 1);
+      const last = Math.max(endLine, startLine);
+      decorations.push({
+        range: new monaco.Range(startLine, 1, last, 1),
+        options: {
+          isWholeLine: true,
+          className: "mh-line-mutant",
+          linesDecorationsClassName: last > startLine ? "mh-span-mutant" : undefined,
+        },
+      });
+    }
+    for (const [line, count] of startingAt) {
       const bucket = count > 9 ? "many" : String(count);
       decorations.push({
         range: new monaco.Range(line, 1, line, 1),
         options: {
-          isWholeLine: true,
-          className: "mh-line-mutant",
           glyphMarginClassName: `mh-glyph-mutant mh-count-${bucket}${
             indicatorClickable ? " mh-glyph-clickable" : ""
           }`,
           glyphMarginHoverMessage: {
-            value: `${count} mutant${count === 1 ? "" : "s"} on this line`,
+            value: `${count} mutant${count === 1 ? "" : "s"} starting on this line`,
           },
         },
       });
     }
     if (selectedLine) {
       decorations.push({
-        range: new monaco.Range(selectedLine, 1, selectedLine, 1),
+        range: new monaco.Range(selectedLine, 1, Math.max(selectedEndLine ?? 0, selectedLine), 1),
         options: {
           isWholeLine: true,
           className: "mh-line-selected",
@@ -114,16 +164,31 @@ export function CodeViewer({
     }
     if (!decorationsRef.current) decorationsRef.current = editor.createDecorationsCollection();
     decorationsRef.current.set(decorations);
-  }, [mutantCounts, selectedLine, changedRanges, indicatorClickable]);
+  }, [mutantRanges, selectedLine, changedRanges, selectedEndLine, indicatorClickable]);
 
   useEffect(() => {
     applyDecorations();
-  }, [applyDecorations]);
+  }, [applyDecorations, editorReady]);
 
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    // While the mouse is down a drag only records its range; it is reported
+    // once on release, so a long drag does not re-render and navigate per move.
+    let dragging = false;
+    let pendingRange: [number, number] | null = null;
     editor.onMouseDown((e) => {
+      dragging = true;
+      pendingRange = null;
+      window.addEventListener(
+        "mouseup",
+        () => {
+          dragging = false;
+          if (pendingRange) callbacksRef.current.onSelectRange?.(...pendingRange);
+          pendingRange = null;
+        },
+        { once: true },
+      );
       const line = e.target.position?.lineNumber;
       if (!line) return;
       const type = e.target.type;
@@ -141,7 +206,22 @@ export function CodeViewer({
         callbacksRef.current.onSelectLine(line);
       }
     });
-    const target = initialLine ?? selectedLine;
+    // A drag ends on the line below the last selected one when it stops at column 1.
+    editor.onDidChangeCursorSelection(({ selection, reason }) => {
+      // Only a user selection may change the range.
+      if (reason !== monaco.editor.CursorChangeReason.Explicit) return;
+      const start = Math.min(selection.startLineNumber, selection.endLineNumber);
+      const last = Math.max(selection.startLineNumber, selection.endLineNumber);
+      if (last === start) {
+        // A click: onMouseDown already selected the line.
+        pendingRange = null;
+        return;
+      }
+      const end = last > start && selection.endColumn === 1 ? last - 1 : last;
+      if (dragging) pendingRange = [start, end];
+      else callbacksRef.current.onSelectRange?.(start, end);
+    });
+    const target = initialLineRef.current ?? selectedLineRef.current;
     if (target) {
       editor.revealLineInCenter(target);
       editor.setPosition({ lineNumber: target, column: 1 });
@@ -155,7 +235,7 @@ export function CodeViewer({
       if (line) editor.revealLineInCenterIfOutsideViewport(line);
       layoutListener.dispose();
     });
-    applyDecorations();
+    setEditorReady(true);
   };
 
   // Reveal the selected line when it changes from outside (e.g. clicking a mutant in the side panel).

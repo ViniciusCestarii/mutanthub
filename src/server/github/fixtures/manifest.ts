@@ -2,9 +2,10 @@
  * Metadata for the fixture repositories used when GITHUB_MODE resolves to
  * `mock`. File contents live on disk under `fixtures/repos/<owner>/<repo>/`.
  *
- * Both commits of a repository serve the same file tree: the fixtures are a
- * snapshot, and the MVP only needs two distinct SHAs to exercise the
- * "mutant refers to an older revision" behaviour.
+ * Both commits of a repository serve the same file tree, except where a commit
+ * has its own copy of a file under `fixtures/overlays/<owner>/<repo>/<sha>/`:
+ * curl's older commit carries a different lib/url.c so that drift (code that
+ * moved on the default branch) can be exercised.
  */
 import type { CommitInfo, RepositoryInfo } from "../types";
 

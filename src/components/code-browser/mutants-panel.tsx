@@ -10,6 +10,7 @@ import {
   ReviewStatusBadge,
 } from "@/components/mutants/status-badge";
 import { routes } from "@/lib/routes";
+import { lineRangeLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { BrowserMutant } from "./types";
 
@@ -20,8 +21,11 @@ interface MutantsPanelProps {
   mutants: BrowserMutant[];
   mutantsAtOtherRevisions: number;
   selectedLine: number | null;
+  /** Last line of the selection; defaults to `selectedLine`. */
+  selectedEndLine?: number | null;
   selectedLineText: string | null;
-  onSelectLine: (line: number) => void;
+  /** Selects a mutant's whole line range. */
+  onSelectRange: (start: number, end: number) => void;
   onSuggest: () => void;
   signedIn: boolean;
   signInHref: string;
@@ -62,8 +66,7 @@ function MutantItem({
           className="bg-muted text-muted-foreground hover:bg-muted/70 shrink-0 rounded px-1 font-mono text-[10px]"
           title="Jump to line"
         >
-          L{mutant.startLine}
-          {mutant.endLine !== mutant.startLine ? `–${mutant.endLine}` : ""}
+          {lineRangeLabel(mutant.startLine, mutant.endLine, "L")}
         </button>
         <Link
           href={routes.mutant(mutant.id)}
@@ -101,8 +104,9 @@ export function MutantsPanel({
   mutants,
   mutantsAtOtherRevisions,
   selectedLine,
+  selectedEndLine,
   selectedLineText,
-  onSelectLine,
+  onSelectRange,
   onSuggest,
   signedIn,
   signInHref,
@@ -111,6 +115,9 @@ export function MutantsPanel({
   const onLine = selectedLine
     ? mutants.filter((m) => m.startLine <= selectedLine && selectedLine <= m.endLine)
     : [];
+  const rangeLabel = selectedLine
+    ? lineRangeLabel(selectedLine, selectedEndLine ?? selectedLine, "L")
+    : "";
 
   return (
     <div className="flex h-full flex-col" data-testid="mutants-panel">
@@ -122,7 +129,7 @@ export function MutantsPanel({
           <div>
             <div className="flex items-center gap-2">
               <span className="rounded bg-sky-500/10 px-1.5 font-mono text-xs font-medium text-sky-700 dark:text-sky-300">
-                L{selectedLine}
+                {rangeLabel}
               </span>
               <span className="text-muted-foreground text-xs">
                 {onLine.length === 0
@@ -174,12 +181,12 @@ export function MutantsPanel({
                 disabled={Boolean(pullRequest?.atHead && !pullRequest.lineInDiff)}
                 data-testid="suggest-mutant"
               >
-                <Plus className="size-3.5" aria-hidden /> Suggest mutant
+                <Plus className="size-3.5" aria-hidden /> Suggest mutant {rangeLabel}
               </Button>
             ) : (
               <div className="mt-2 space-y-1.5">
                 <Button className="w-full" size="sm" disabled data-testid="suggest-mutant">
-                  <Plus className="size-3.5" aria-hidden /> Suggest mutant
+                  <Plus className="size-3.5" aria-hidden /> Suggest mutant {rangeLabel}
                 </Button>
                 <Link
                   href={signInHref}
@@ -196,7 +203,7 @@ export function MutantsPanel({
                     key={m.id}
                     mutant={m}
                     active
-                    onClick={() => onSelectLine(m.startLine)}
+                    onClick={() => onSelectRange(m.startLine, m.endLine)}
                   />
                 ))}
               </ul>
@@ -236,7 +243,7 @@ export function MutantsPanel({
                 active={
                   selectedLine != null && m.startLine <= selectedLine && selectedLine <= m.endLine
                 }
-                onClick={() => onSelectLine(m.startLine)}
+                onClick={() => onSelectRange(m.startLine, m.endLine)}
               />
             ))}
           </ul>

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Bug, ExternalLink, FileWarning, FolderTree, GitCommitHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -10,7 +11,7 @@ import { languageForPath } from "@/components/code/language";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { SuggestMutantDrawer } from "@/components/mutants/suggest-mutant-drawer";
-import { routes } from "@/lib/routes";
+import { lineHash, parseLineHash, routes } from "@/lib/routes";
 import { rangeContaining } from "@/domain/pull-requests/diff-ranges";
 import { shortSha } from "@/lib/format";
 import { Breadcrumbs } from "./breadcrumbs";
@@ -42,34 +43,67 @@ export interface CodeWorkspaceProps {
   pullRequest?: BrowserPullRequest | null;
 }
 
-function lineFromHash(hash: string): number | null {
-  const match = hash.match(/^#L(\d+)/);
-  return match ? Number(match[1]) : null;
+interface LineRange {
+  start: number;
+  end: number;
 }
 
 /**
- * The selected line is React state mirrored into the URL hash (#L123) so links
- * are shareable. State (not the hash) is the source of truth: a router refresh
- * after a submission must not drop the selection or close the drawer.
+ * The selected lines are React state mirrored into the URL hash (#L12 or
+ * #L12-L20) so links are shareable. State (not the hash) is the source of
+ * truth: a router refresh after a submission must not drop the selection or
+ * close the drawer.
  */
-function useSelectedLine(): [number | null, (line: number) => void] {
-  const [selectedLine, setSelectedLine] = useState<number | null>(null);
+function useSelectedRange(
+  location: string,
+): [LineRange | null, (start: number, end?: number) => void] {
+  const router = useRouter();
+  const [range, setRange] = useState<LineRange | null>(null);
+  // The last hash asked of the router: router.replace is async, so
+  // window.location.hash lags behind it during a drag.
+  const requestedHash = useRef<string | null>(null);
 
+  // Re-read on mount and whenever `location` (path + query) changes: navigating
+  // to another file, ref or pull request keeps this component mounted, and
+  // Next's pushState does not fire hashchange.
   useEffect(() => {
-    const sync = () => setSelectedLine(lineFromHash(window.location.hash));
+    const sync = () => {
+      requestedHash.current = window.location.hash;
+      setRange(parseLineHash(window.location.hash));
+    };
     sync();
+    // A client-side navigation can commit this page before the browser URL
+    // carries the link's hash, so read it again once it has landed, unless a
+    // selection was made meanwhile.
+    const readHash = requestedHash.current;
+    const frame = requestAnimationFrame(() => {
+      if (requestedHash.current === readHash) sync();
+    });
     window.addEventListener("hashchange", sync);
-    return () => window.removeEventListener("hashchange", sync);
-  }, []);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("hashchange", sync);
+    };
+  }, [location]);
 
-  const selectLine = useCallback((line: number) => {
-    setSelectedLine(line);
-    const url = `${window.location.pathname}${window.location.search}#L${line}`;
-    if (window.location.hash !== `#L${line}`)
-      window.history.replaceState(window.history.state, "", url);
-  }, []);
+  const selectRange = useCallback(
+    (start: number, end = start) => {
+      const next = { start, end: Math.max(start, end) };
+      setRange(next);
+      const hash = lineHash(next.start, next.end);
+      // Through the router, not history.replaceState: a later refresh restores
+      // the canonical URL, and a hash it never saw would reset the selection.
+      if ((requestedHash.current ?? window.location.hash) !== hash) {
+        requestedHash.current = hash;
+        router.replace(`${window.location.pathname}${window.location.search}${hash}`, {
+          scroll: false,
+        });
+      }
+    },
+    [router],
+  );
 
-  return [selectedLine, selectLine];
+  return [range, selectRange];
 }
 
 /**
@@ -87,7 +121,11 @@ export function CodeWorkspace({
   signedIn,
   pullRequest = null,
 }: CodeWorkspaceProps) {
-  const [selectedLine, selectLine] = useSelectedLine();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [selectedRange, selectRange] = useSelectedRange(`${pathname}?${searchParams}`);
+  const selectedLine = selectedRange?.start ?? null;
+  const selectLine = useCallback((line: number) => selectRange(line), [selectRange]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [treeOpen, setTreeOpen] = useState(false);
   const [mutantsPanelOpen, setMutantsPanelOpen] = useState(false);
@@ -102,21 +140,24 @@ export function CodeWorkspace({
   const language = languageForPath(path);
   const changedBlock =
     selectedLine != null ? rangeContaining(selectedLine, pullRequest?.ranges ?? []) : null;
-  const lineInDiff = changedBlock != null;
+  // The whole selection must sit in the changed block, which also caps the drawer's end line.
+  const lineInDiff =
+    changedBlock != null && selectedRange != null && selectedRange.end <= changedBlock[1];
 
-  const mutantCounts = useMemo(() => {
-    const counts: Record<number, number> = {};
-    for (const m of file?.mutants ?? []) {
-      for (let l = m.startLine; l <= m.endLine; l++) counts[l] = (counts[l] ?? 0) + 1;
-    }
-    return counts;
-  }, [file?.mutants]);
+  const mutantRanges = useMemo(
+    () => (file?.mutants ?? []).map((m) => ({ startLine: m.startLine, endLine: m.endLine })),
+    [file?.mutants],
+  );
 
   const currentUrl = routes.projectCode(project.owner, project.repo, path || undefined, {
     ref: gitRef,
     line: selectedLine ?? undefined,
+    endLine: selectedRange?.end,
   });
-  const selectedLineText = selectedLine && lines.length ? (lines[selectedLine - 1] ?? "") : null;
+  const selectedLineText =
+    selectedRange && lines.length
+      ? lines.slice(selectedRange.start - 1, selectedRange.end).join("\n")
+      : null;
 
   const treeNode = (onNavigate?: () => void) => (
     <FileTree
@@ -137,9 +178,10 @@ export function CodeWorkspace({
       mutants={file.mutants}
       mutantsAtOtherRevisions={file.mutantsAtOtherRevisions}
       selectedLine={selectedLine}
+      selectedEndLine={selectedRange?.end}
       selectedLineText={selectedLineText}
-      onSelectLine={(line) => {
-        selectLine(line);
+      onSelectRange={(start, end) => {
+        selectRange(start, end);
         setMutantsPanelOpen(false);
       }}
       onSuggest={() => {
@@ -158,6 +200,7 @@ export function CodeWorkspace({
               leaveHref: routes.projectCode(project.owner, project.repo, path, {
                 ref: commit.sha,
                 line: selectedLine ?? undefined,
+                endLine: selectedRange?.end,
               }),
             }
           : null
@@ -213,6 +256,7 @@ export function CodeWorkspace({
                   commit.sha,
                   file.path,
                   selectedLine ?? undefined,
+                  selectedRange?.end,
                 )}
                 target="_blank"
                 rel="noreferrer noopener"
@@ -284,9 +328,11 @@ export function CodeWorkspace({
                 className="min-h-0 flex-1"
                 content={file.content}
                 language={language}
-                mutantCounts={mutantCounts}
+                mutantRanges={mutantRanges}
                 selectedLine={selectedLine}
+                selectedEndLine={selectedRange?.end}
                 onSelectLine={selectLine}
+                onSelectRange={selectRange}
                 onIndicatorClick={isDesktop ? undefined : () => setMutantsPanelOpen(true)}
                 initialLine={selectedLine}
                 changedRanges={pullRequest?.atHead ? pullRequest.ranges : undefined}
@@ -366,7 +412,7 @@ export function CodeWorkspace({
 
       {file && selectedLine ? (
         <SuggestMutantDrawer
-          key={`${commit.sha}:${file.path}:${selectedLine}`}
+          key={`${commit.sha}:${file.path}:${selectedLine}-${selectedRange?.end}`}
           open={drawerOpen}
           onOpenChange={setDrawerOpen}
           project={{
@@ -380,6 +426,7 @@ export function CodeWorkspace({
           language={language}
           lines={lines}
           selectedLine={selectedLine}
+          selectedEndLine={selectedRange?.end}
           pullRequestNumber={pullRequest?.atHead ? pullRequest.number : null}
           lineLimit={pullRequest?.atHead && changedBlock ? changedBlock[1] : null}
         />

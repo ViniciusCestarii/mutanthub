@@ -22,10 +22,15 @@ import {
 
 /**
  * Fixture-backed client used when no GitHub token is configured (and in E2E
- * tests). Repositories are directories under `fixtures/repos/<owner>/<repo>`.
- * Both commits of a repository serve the same snapshot of files.
+ * tests). Repositories are directories under `fixtures/repos/<owner>/<repo>`,
+ * which hold the default branch head. A commit that served different content
+ * puts its own copy of the file under
+ * `fixtures/overlays/<owner>/<repo>/<sha>/<path>`; everything else falls back
+ * to the head snapshot.
  */
-const FIXTURES_ROOT = path.join(process.cwd(), "src", "server", "github", "fixtures", "repos");
+const FIXTURES_DIR = path.join(process.cwd(), "src", "server", "github", "fixtures");
+const FIXTURES_ROOT = path.join(FIXTURES_DIR, "repos");
+const OVERLAYS_ROOT = path.join(FIXTURES_DIR, "overlays");
 const MIN_PREFIX = 7;
 
 function requireRepo(owner: string, repo: string): MockRepo {
@@ -48,15 +53,29 @@ function resolveRef(mock: MockRepo, ref: string): MockCommit {
   );
 }
 
-/** Rejects path traversal and returns the absolute path inside the fixture tree. */
-function safeJoin(mock: MockRepo, relativePath: string): string {
-  const repoRoot = path.join(FIXTURES_ROOT, mock.info.owner, mock.info.name);
+/** Rejects path traversal and returns the absolute path inside `root`. */
+function safeJoin(root: string, relativePath: string): string {
   const cleaned = relativePath.replace(/^\/+/, "");
-  const resolved = path.resolve(repoRoot, cleaned);
-  if (resolved !== repoRoot && !resolved.startsWith(repoRoot + path.sep)) {
+  const resolved = path.resolve(root, cleaned);
+  if (resolved !== root && !resolved.startsWith(root + path.sep)) {
     throw new GitHubError("NOT_FOUND", `Path "${relativePath}" not found`);
   }
   return resolved;
+}
+
+async function readHeadFile(absolute: string, relative: string): Promise<Buffer> {
+  const info = await stat(absolute);
+  if (!info.isFile()) throw new GitHubError("INVALID", `${relative} is not a regular file`);
+  return readFile(absolute);
+}
+
+function repoRoot(mock: MockRepo): string {
+  return path.join(FIXTURES_ROOT, mock.info.owner, mock.info.name);
+}
+
+/** Where a commit keeps its own copies of files that differ from the head tree. */
+function overlayRoot(mock: MockRepo, sha: string): string {
+  return path.join(OVERLAYS_ROOT, mock.info.owner, mock.info.name, sha);
 }
 
 function normalizeRelative(relativePath: string): string {
@@ -83,7 +102,7 @@ export function createMockGitHubClient(): GitHubClient {
       const mock = requireRepo(owner, repo);
       resolveRef(mock, ref);
       const relative = normalizeRelative(dirPath);
-      const absolute = safeJoin(mock, relative);
+      const absolute = safeJoin(repoRoot(mock), relative);
 
       let names: string[];
       try {
@@ -112,13 +131,17 @@ export function createMockGitHubClient(): GitHubClient {
       const mock = requireRepo(owner, repo);
       const commit = resolveRef(mock, ref);
       const relative = normalizeRelative(filePath);
-      const absolute = safeJoin(mock, relative);
+      const absolute = safeJoin(repoRoot(mock), relative);
+      // This commit's own copy of the file, when it has one.
+      const overlay = safeJoin(overlayRoot(mock, commit.sha), relative);
 
       let buffer: Buffer;
       try {
-        const info = await stat(absolute);
-        if (!info.isFile()) throw new GitHubError("INVALID", `${relative} is not a regular file`);
-        buffer = await readFile(absolute);
+        try {
+          buffer = await readFile(overlay);
+        } catch {
+          buffer = await readHeadFile(absolute, relative);
+        }
       } catch (error) {
         if (error instanceof GitHubError) throw error;
         throw new GitHubError("NOT_FOUND", `File "${relative}" not found`);

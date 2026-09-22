@@ -42,6 +42,20 @@ describe("mock GitHub client", () => {
     expect(byOlderPrefix.sha).toBe(older.sha);
   });
 
+  it("serves a commit's own copy of a file and the head snapshot elsewhere", async () => {
+    const curl = getMockRepo("curl", "curl")!;
+    const older = await client.getFile("curl", "curl", curl.commits[0].sha, "lib/url.c");
+    const newer = await client.getFile("curl", "curl", headCommit(curl).sha, "lib/url.c");
+    expect(older.content).toContain("digits >= MAX_PORT_DIGITS");
+    expect(newer.content).toContain("digits > 5");
+    expect(newer.content).not.toContain("MAX_PORT_DIGITS");
+
+    // A file without an overlay reads the same at both commits.
+    const oldParse = await client.getFile("curl", "curl", curl.commits[0].sha, "lib/parsedate.c");
+    const newParse = await client.getFile("curl", "curl", headCommit(curl).sha, "lib/parsedate.c");
+    expect(oldParse.content).toBe(newParse.content);
+  });
+
   it("throws NOT_FOUND for unknown repositories, refs and paths", async () => {
     await expect(client.getRepository("nobody", "nothing")).rejects.toSatisfy(
       (e: unknown) => isGitHubError(e) && e.kind === "NOT_FOUND",

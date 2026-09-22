@@ -1,3 +1,17 @@
+/** "#L12" for one line, "#L12-L20" for a block, as on GitHub. */
+export function lineHash(start: number, end?: number): string {
+  return end && end > start ? `#L${start}-L${end}` : `#L${start}`;
+}
+
+/** Reads a line hash ("#L12", "#L12-L20", "#L12-20") back into a range. */
+export function parseLineHash(hash: string): { start: number; end: number } | null {
+  const match = hash.match(/^#L(\d+)(?:-L?(\d+))?/);
+  if (!match) return null;
+  const start = Number(match[1]);
+  const end = match[2] ? Number(match[2]) : start;
+  return { start, end: Math.max(start, end) };
+}
+
 /** Central place for building internal URLs so route changes stay in one file. */
 export const routes = {
   home: () => "/",
@@ -8,14 +22,14 @@ export const routes = {
     owner: string,
     repo: string,
     path?: string,
-    opts?: { ref?: string; line?: number; pr?: number },
+    opts?: { ref?: string; line?: number; endLine?: number; pr?: number },
   ) => {
     const base = `/projects/${owner}/${repo}/code${path ? `/${path}` : ""}`;
     const params = new URLSearchParams();
     if (opts?.ref) params.set("ref", opts.ref);
     if (opts?.pr) params.set("pr", String(opts.pr));
     const query = params.toString();
-    const hash = opts?.line ? `#L${opts.line}` : "";
+    const hash = opts?.line ? lineHash(opts.line, opts.endLine) : "";
     return `${base}${query ? `?${query}` : ""}${hash}`;
   },
   projectMutants: (owner: string, repo: string) => `/projects/${owner}/${repo}/mutants`,
@@ -50,8 +64,15 @@ export const routes = {
       `https://github.com/${owner}/${repo}/commit/${sha}`,
     pull: (owner: string, repo: string, number: number) =>
       `https://github.com/${owner}/${repo}/pull/${number}`,
-    file: (owner: string, repo: string, sha: string, path: string, line?: number) =>
-      `https://github.com/${owner}/${repo}/blob/${sha}/${path}${line ? `#L${line}` : ""}`,
+    file: (
+      owner: string,
+      repo: string,
+      sha: string,
+      path: string,
+      line?: number,
+      endLine?: number,
+    ) =>
+      `https://github.com/${owner}/${repo}/blob/${sha}/${path}${line ? lineHash(line, endLine) : ""}`,
     user: (username: string) => `https://github.com/${username}`,
   },
 };

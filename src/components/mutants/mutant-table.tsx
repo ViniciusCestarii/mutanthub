@@ -3,7 +3,7 @@ import { Bug } from "lucide-react";
 import type { MutantListItem } from "@/server/repositories/mutant-repository";
 import { summarizeValidations } from "@/domain/mutants/validation-summary";
 import { routes } from "@/lib/routes";
-import { relativeTime, shortSha } from "@/lib/format";
+import { lineRangeLabel, relativeTime, shortSha } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/shared/empty-state";
 import { UserChip } from "@/components/shared/user-chip";
@@ -82,13 +82,16 @@ export function MutantTable({
                       {
                         ref: m.revision.commitSha,
                         line: m.startLine,
+                        endLine: m.endLine,
                       },
                     )}
                     className="block truncate font-mono text-xs hover:underline"
-                    title={`${m.filePath}:${m.startLine} @ ${shortSha(m.revision.commitSha)}`}
+                    title={`${m.filePath}:${lineRangeLabel(m.startLine, m.endLine)} @ ${shortSha(m.revision.commitSha)}`}
                   >
                     {m.filePath}
-                    <span className="text-muted-foreground">:{m.startLine}</span>
+                    <span className="text-muted-foreground">
+                      :{lineRangeLabel(m.startLine, m.endLine)}
+                    </span>
                   </Link>
                 </td>
                 <td className="max-w-[320px] px-3 py-2">
