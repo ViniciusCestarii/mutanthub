@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { CodeViewer } from "@/components/code/code-viewer";
 import { languageForPath } from "@/components/code/language";
 import { EmptyState } from "@/components/shared/empty-state";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { SuggestMutantDrawer } from "@/components/mutants/suggest-mutant-drawer";
 import { routes } from "@/lib/routes";
 import { rangeContaining } from "@/domain/pull-requests/diff-ranges";
@@ -90,6 +91,7 @@ export function CodeWorkspace({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [treeOpen, setTreeOpen] = useState(false);
   const [mutantsPanelOpen, setMutantsPanelOpen] = useState(false);
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   const file = target.kind === "file" ? target.file : null;
   const content = file?.content ?? null;
@@ -285,7 +287,7 @@ export function CodeWorkspace({
                 mutantCounts={mutantCounts}
                 selectedLine={selectedLine}
                 onSelectLine={selectLine}
-                onIndicatorClick={() => setMutantsPanelOpen(true)}
+                onIndicatorClick={isDesktop ? undefined : () => setMutantsPanelOpen(true)}
                 initialLine={selectedLine}
                 changedRanges={pullRequest?.atHead ? pullRequest.ranges : undefined}
               />
