@@ -22,8 +22,8 @@ const Editor = dynamic(() => import("@monaco-editor/react").then((m) => m.Editor
 export interface CodeViewerProps {
   content: string;
   language: string;
-  /** Number of mutants per 1-based line; drives the gutter indicators. */
-  mutantCounts: Record<number, number>;
+  /** Inclusive 1-based line spans of the file's mutants; drives the gutter indicators. */
+  mutantRanges: Array<{ startLine: number; endLine: number }>;
   selectedLine: number | null;
   /** Last line of the selection; defaults to `selectedLine`. */
   selectedEndLine?: number | null;
@@ -48,7 +48,7 @@ type IEditor = MonacoEditorNs.IStandaloneCodeEditor;
 export function CodeViewer({
   content,
   language,
-  mutantCounts,
+  mutantRanges,
   selectedLine,
   selectedEndLine,
   onSelectLine,
@@ -96,20 +96,32 @@ export function CodeViewer({
         },
       });
     }
-    for (const [lineStr, count] of Object.entries(mutantCounts)) {
-      const line = Number(lineStr);
-      if (!count || line < 1) continue;
+    // One tinted block per mutant, plus a bracket in the margin when it spans
+    // several lines, so a multi-line mutant does not read as one per line.
+    const startingAt = new Map<number, number>();
+    for (const { startLine, endLine } of mutantRanges) {
+      if (startLine < 1) continue;
+      startingAt.set(startLine, (startingAt.get(startLine) ?? 0) + 1);
+      const last = Math.max(endLine, startLine);
+      decorations.push({
+        range: new monaco.Range(startLine, 1, last, 1),
+        options: {
+          isWholeLine: true,
+          className: "mh-line-mutant",
+          linesDecorationsClassName: last > startLine ? "mh-span-mutant" : undefined,
+        },
+      });
+    }
+    for (const [line, count] of startingAt) {
       const bucket = count > 9 ? "many" : String(count);
       decorations.push({
         range: new monaco.Range(line, 1, line, 1),
         options: {
-          isWholeLine: true,
-          className: "mh-line-mutant",
           glyphMarginClassName: `mh-glyph-mutant mh-count-${bucket}${
             indicatorClickable ? " mh-glyph-clickable" : ""
           }`,
           glyphMarginHoverMessage: {
-            value: `${count} mutant${count === 1 ? "" : "s"} on this line`,
+            value: `${count} mutant${count === 1 ? "" : "s"} starting on this line`,
           },
         },
       });
@@ -126,7 +138,7 @@ export function CodeViewer({
     }
     if (!decorationsRef.current) decorationsRef.current = editor.createDecorationsCollection();
     decorationsRef.current.set(decorations);
-  }, [mutantCounts, selectedLine, changedRanges, selectedEndLine, indicatorClickable]);
+  }, [mutantRanges, selectedLine, changedRanges, selectedEndLine, indicatorClickable]);
 
   useEffect(() => {
     applyDecorations();

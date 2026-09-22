@@ -139,13 +139,10 @@ export function CodeWorkspace({
   const lineInDiff =
     changedBlock != null && selectedRange != null && selectedRange.end <= changedBlock[1];
 
-  const mutantCounts = useMemo(() => {
-    const counts: Record<number, number> = {};
-    for (const m of file?.mutants ?? []) {
-      for (let l = m.startLine; l <= m.endLine; l++) counts[l] = (counts[l] ?? 0) + 1;
-    }
-    return counts;
-  }, [file?.mutants]);
+  const mutantRanges = useMemo(
+    () => (file?.mutants ?? []).map((m) => ({ startLine: m.startLine, endLine: m.endLine })),
+    [file?.mutants],
+  );
 
   const currentUrl = routes.projectCode(project.owner, project.repo, path || undefined, {
     ref: gitRef,
@@ -323,7 +320,7 @@ export function CodeWorkspace({
                 className="min-h-0 flex-1"
                 content={file.content}
                 language={language}
-                mutantCounts={mutantCounts}
+                mutantRanges={mutantRanges}
                 selectedLine={selectedLine}
                 selectedEndLine={selectedRange?.end}
                 onSelectLine={selectLine}
