@@ -23,7 +23,8 @@ interface MutantsPanelProps {
   /** Last line of the selection; defaults to `selectedLine`. */
   selectedEndLine?: number | null;
   selectedLineText: string | null;
-  onSelectLine: (line: number) => void;
+  /** Selects a mutant's whole line range. */
+  onSelectRange: (start: number, end: number) => void;
   onSuggest: () => void;
   signedIn: boolean;
   signInHref: string;
@@ -105,7 +106,7 @@ export function MutantsPanel({
   selectedLine,
   selectedEndLine,
   selectedLineText,
-  onSelectLine,
+  onSelectRange,
   onSuggest,
   signedIn,
   signInHref,
@@ -203,7 +204,7 @@ export function MutantsPanel({
                     key={m.id}
                     mutant={m}
                     active
-                    onClick={() => onSelectLine(m.startLine)}
+                    onClick={() => onSelectRange(m.startLine, m.endLine)}
                   />
                 ))}
               </ul>
@@ -243,7 +244,7 @@ export function MutantsPanel({
                 active={
                   selectedLine != null && m.startLine <= selectedLine && selectedLine <= m.endLine
                 }
-                onClick={() => onSelectLine(m.startLine)}
+                onClick={() => onSelectRange(m.startLine, m.endLine)}
               />
             ))}
           </ul>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Bug, ExternalLink, FileWarning, FolderTree, GitCommitHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -66,22 +66,37 @@ function hashFor({ start, end }: LineRange): string {
  * truth: a router refresh after a submission must not drop the selection or
  * close the drawer.
  */
-function useSelectedRange(): [LineRange | null, (start: number, end?: number) => void] {
+function useSelectedRange(
+  location: string,
+): [LineRange | null, (start: number, end?: number) => void] {
   const router = useRouter();
   const [range, setRange] = useState<LineRange | null>(null);
   // The last hash asked of the router: router.replace is async, so
   // window.location.hash lags behind it during a drag.
   const requestedHash = useRef<string | null>(null);
 
+  // Re-read on mount and whenever `location` (path + query) changes: navigating
+  // to another file, ref or pull request keeps this component mounted, and
+  // Next's pushState does not fire hashchange.
   useEffect(() => {
     const sync = () => {
       requestedHash.current = window.location.hash;
       setRange(rangeFromHash(window.location.hash));
     };
     sync();
+    // A client-side navigation can commit this page before the browser URL
+    // carries the link's hash, so read it again once it has landed, unless a
+    // selection was made meanwhile.
+    const readHash = requestedHash.current;
+    const frame = requestAnimationFrame(() => {
+      if (requestedHash.current === readHash) sync();
+    });
     window.addEventListener("hashchange", sync);
-    return () => window.removeEventListener("hashchange", sync);
-  }, []);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("hashchange", sync);
+    };
+  }, [location]);
 
   const selectRange = useCallback(
     (start: number, end = start) => {
@@ -118,7 +133,9 @@ export function CodeWorkspace({
   signedIn,
   pullRequest = null,
 }: CodeWorkspaceProps) {
-  const [selectedRange, selectRange] = useSelectedRange();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [selectedRange, selectRange] = useSelectedRange(`${pathname}?${searchParams}`);
   const selectedLine = selectedRange?.start ?? null;
   const selectLine = useCallback((line: number) => selectRange(line), [selectRange]);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -147,6 +164,7 @@ export function CodeWorkspace({
   const currentUrl = routes.projectCode(project.owner, project.repo, path || undefined, {
     ref: gitRef,
     line: selectedLine ?? undefined,
+    endLine: selectedRange?.end,
   });
   const selectedLineText =
     selectedRange && lines.length
@@ -174,8 +192,8 @@ export function CodeWorkspace({
       selectedLine={selectedLine}
       selectedEndLine={selectedRange?.end}
       selectedLineText={selectedLineText}
-      onSelectLine={(line) => {
-        selectLine(line);
+      onSelectRange={(start, end) => {
+        selectRange(start, end);
         setMutantsPanelOpen(false);
       }}
       onSuggest={() => {
@@ -194,6 +212,7 @@ export function CodeWorkspace({
               leaveHref: routes.projectCode(project.owner, project.repo, path, {
                 ref: commit.sha,
                 line: selectedLine ?? undefined,
+                endLine: selectedRange?.end,
               }),
             }
           : null
@@ -249,6 +268,7 @@ export function CodeWorkspace({
                   commit.sha,
                   file.path,
                   selectedLine ?? undefined,
+                  selectedRange?.end,
                 )}
                 target="_blank"
                 rel="noreferrer noopener"

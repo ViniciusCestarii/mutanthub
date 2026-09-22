@@ -19,6 +19,11 @@ interface MutantTableProps {
   className?: string;
 }
 
+/** "120" for a single line, "120–124" when the mutant covers a block. */
+function lineLabel({ startLine, endLine }: Pick<MutantListItem, "startLine" | "endLine">): string {
+  return endLine > startLine ? `${startLine}–${endLine}` : `${startLine}`;
+}
+
 /** Dense, GitHub-like table of mutants used by /mutants, project pages, dashboard and profiles. */
 export function MutantTable({
   mutants,
@@ -82,13 +87,14 @@ export function MutantTable({
                       {
                         ref: m.revision.commitSha,
                         line: m.startLine,
+                        endLine: m.endLine,
                       },
                     )}
                     className="block truncate font-mono text-xs hover:underline"
-                    title={`${m.filePath}:${m.startLine} @ ${shortSha(m.revision.commitSha)}`}
+                    title={`${m.filePath}:${lineLabel(m)} @ ${shortSha(m.revision.commitSha)}`}
                   >
                     {m.filePath}
-                    <span className="text-muted-foreground">:{m.startLine}</span>
+                    <span className="text-muted-foreground">:{lineLabel(m)}</span>
                   </Link>
                 </td>
                 <td className="max-w-[320px] px-3 py-2">

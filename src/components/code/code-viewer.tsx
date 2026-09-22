@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useTheme } from "@/components/layout/theme-provider";
 import type { Monaco, OnMount } from "@monaco-editor/react";
@@ -59,6 +59,9 @@ export function CodeViewer({
   className,
 }: CodeViewerProps) {
   const { resolvedTheme } = useTheme();
+  // Monaco mounts asynchronously: flipping this re-runs the effects below with
+  // the current selection, which `onMount`'s own closure may predate.
+  const [editorReady, setEditorReady] = useState(false);
   const editorRef = useRef<IEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const decorationsRef = useRef<MonacoEditorNs.IEditorDecorationsCollection | null>(null);
@@ -68,9 +71,11 @@ export function CodeViewer({
   }, [onSelectLine, onSelectRange, onIndicatorClick]);
   // Latest selection, readable from Monaco event handlers registered at mount.
   const selectedLineRef = useRef<number | null>(selectedLine);
+  const selectedEndLineRef = useRef<number | null>(selectedEndLine ?? null);
   useEffect(() => {
     selectedLineRef.current = selectedLine;
-  }, [selectedLine]);
+    selectedEndLineRef.current = selectedEndLine ?? null;
+  }, [selectedLine, selectedEndLine]);
   // `onMount` is captured on the first render, when a line coming from the URL
   // hash is not known yet; the reveal below must read the current value.
   const initialLineRef = useRef<number | null>(initialLine ?? null);
@@ -79,6 +84,27 @@ export function CodeViewer({
   }, [initialLine]);
 
   const indicatorClickable = onIndicatorClick != null;
+
+  /**
+   * Mirrors a selection that came from outside the editor (a link with
+   * #L12-L20, the mutants panel) into Monaco's own selection. Skipped while the
+   * editor has focus, so it never fights a drag in progress.
+   */
+  const syncEditorSelection = useCallback(() => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    const start = selectedLineRef.current;
+    if (!editor || !monaco || !start || editor.hasTextFocus()) return;
+    const end = Math.max(selectedEndLineRef.current ?? start, start);
+    const current = editor.getSelection();
+    if (current && current.startLineNumber === start && current.endLineNumber === end) return;
+    const endColumn = editor.getModel()?.getLineMaxColumn(end) ?? 1;
+    editor.setSelection(new monaco.Range(start, 1, end, endColumn));
+  }, []);
+
+  useEffect(() => {
+    syncEditorSelection();
+  }, [syncEditorSelection, selectedLine, selectedEndLine, editorReady]);
 
   const applyDecorations = useCallback(() => {
     const editor = editorRef.current;
@@ -142,7 +168,7 @@ export function CodeViewer({
 
   useEffect(() => {
     applyDecorations();
-  }, [applyDecorations]);
+  }, [applyDecorations, editorReady]);
 
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -182,8 +208,8 @@ export function CodeViewer({
     });
     // A drag ends on the line below the last selected one when it stops at column 1.
     editor.onDidChangeCursorSelection(({ selection, reason }) => {
-      // only a real selection may change the range.
-      if (reason === monaco.editor.CursorChangeReason.ContentFlush) return;
+      // Only a user selection may change the range.
+      if (reason !== monaco.editor.CursorChangeReason.Explicit) return;
       const start = Math.min(selection.startLineNumber, selection.endLineNumber);
       const last = Math.max(selection.startLineNumber, selection.endLineNumber);
       if (last === start) {
@@ -209,7 +235,7 @@ export function CodeViewer({
       if (line) editor.revealLineInCenterIfOutsideViewport(line);
       layoutListener.dispose();
     });
-    applyDecorations();
+    setEditorReady(true);
   };
 
   // Reveal the selected line when it changes from outside (e.g. clicking a mutant in the side panel).

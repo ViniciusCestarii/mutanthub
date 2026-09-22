@@ -97,6 +97,7 @@ export function MutantHeader({ mutant, compact, actions }: MutantHeaderProps) {
               href={routes.projectCode(owner, repo, mutant.filePath, {
                 ref: revision.commitSha,
                 line: mutant.startLine,
+                endLine: mutant.endLine,
               })}
               className="truncate font-mono hover:underline"
               title={`${mutant.filePath}:${mutant.startLine} at ${shortSha(revision.commitSha)}`}
