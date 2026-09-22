@@ -11,6 +11,8 @@ interface FileTreeProps {
   owner: string;
   repo: string;
   gitRef: string;
+  /** Pull request number to keep in file links, so navigating stays in PR mode. */
+  pr?: number;
   currentPath: string;
   /** Preloaded entries for "" (root) and the ancestors of `currentPath`. */
   initialCache: TreeCache;
@@ -38,6 +40,7 @@ export function FileTree({
   owner,
   repo,
   gitRef,
+  pr,
   currentPath,
   initialCache,
   onNavigate,
@@ -155,7 +158,7 @@ export function FileTree({
             </button>
           ) : (
             <Link
-              href={routes.projectCode(owner, repo, entry.path, { ref: gitRef })}
+              href={routes.projectCode(owner, repo, entry.path, { ref: gitRef, pr })}
               onClick={onNavigate}
               aria-current={isCurrent ? "page" : undefined}
               data-testid={isCurrent ? "tree-current-file" : undefined}

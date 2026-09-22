@@ -7,15 +7,16 @@ interface BreadcrumbsProps {
   repo: string;
   path: string;
   gitRef: string;
+  pr?: number;
 }
 
 /** `owner/repo / dir / file` — every segment links to its directory at the same ref. */
-export function Breadcrumbs({ owner, repo, path, gitRef }: BreadcrumbsProps) {
+export function Breadcrumbs({ owner, repo, path, gitRef, pr }: BreadcrumbsProps) {
   const segments = path ? path.split("/") : [];
   return (
     <nav aria-label="Path" className="flex min-w-0 items-center gap-1 font-mono text-xs">
       <Link
-        href={routes.projectCode(owner, repo, undefined, { ref: gitRef })}
+        href={routes.projectCode(owner, repo, undefined, { ref: gitRef, pr })}
         className="text-foreground shrink-0 font-medium hover:underline"
       >
         {owner}/{repo}
@@ -32,7 +33,7 @@ export function Breadcrumbs({ owner, repo, path, gitRef }: BreadcrumbsProps) {
               </span>
             ) : (
               <Link
-                href={routes.projectCode(owner, repo, segmentPath, { ref: gitRef })}
+                href={routes.projectCode(owner, repo, segmentPath, { ref: gitRef, pr })}
                 className="text-muted-foreground hover:text-foreground truncate hover:underline"
               >
                 {segment}
