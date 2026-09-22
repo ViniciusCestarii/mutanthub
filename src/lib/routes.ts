@@ -1,3 +1,17 @@
+/** "#L12" for one line, "#L12-L20" for a block, as on GitHub. */
+export function lineHash(start: number, end?: number): string {
+  return end && end > start ? `#L${start}-L${end}` : `#L${start}`;
+}
+
+/** Reads a line hash ("#L12", "#L12-L20", "#L12-20") back into a range. */
+export function parseLineHash(hash: string): { start: number; end: number } | null {
+  const match = hash.match(/^#L(\d+)(?:-L?(\d+))?/);
+  if (!match) return null;
+  const start = Number(match[1]);
+  const end = match[2] ? Number(match[2]) : start;
+  return { start, end: Math.max(start, end) };
+}
+
 /** Central place for building internal URLs so route changes stay in one file. */
 export const routes = {
   home: () => "/",
@@ -15,11 +29,7 @@ export const routes = {
     if (opts?.ref) params.set("ref", opts.ref);
     if (opts?.pr) params.set("pr", String(opts.pr));
     const query = params.toString();
-    const hash = opts?.line
-      ? opts.endLine && opts.endLine > opts.line
-        ? `#L${opts.line}-L${opts.endLine}`
-        : `#L${opts.line}`
-      : "";
+    const hash = opts?.line ? lineHash(opts.line, opts.endLine) : "";
     return `${base}${query ? `?${query}` : ""}${hash}`;
   },
   projectMutants: (owner: string, repo: string) => `/projects/${owner}/${repo}/mutants`,
@@ -62,9 +72,7 @@ export const routes = {
       line?: number,
       endLine?: number,
     ) =>
-      `https://github.com/${owner}/${repo}/blob/${sha}/${path}${
-        line ? (endLine && endLine > line ? `#L${line}-L${endLine}` : `#L${line}`) : ""
-      }`,
+      `https://github.com/${owner}/${repo}/blob/${sha}/${path}${line ? lineHash(line, endLine) : ""}`,
     user: (username: string) => `https://github.com/${username}`,
   },
 };

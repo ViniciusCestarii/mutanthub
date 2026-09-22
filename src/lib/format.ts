@@ -4,6 +4,11 @@ export function shortSha(sha: string, length = 7): string {
   return sha.slice(0, length);
 }
 
+/** "120" for one line, "120–124" for a block; with prefix "L", "L120–L124". */
+export function lineRangeLabel(start: number, end: number, prefix = ""): string {
+  return end > start ? `${prefix}${start}–${prefix}${end}` : `${prefix}${start}`;
+}
+
 export function relativeTime(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   return `${formatDistanceToNowStrict(d)} ago`;

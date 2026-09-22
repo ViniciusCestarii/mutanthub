@@ -11,7 +11,7 @@ import { languageForPath } from "@/components/code/language";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { SuggestMutantDrawer } from "@/components/mutants/suggest-mutant-drawer";
-import { routes } from "@/lib/routes";
+import { lineHash, parseLineHash, routes } from "@/lib/routes";
 import { rangeContaining } from "@/domain/pull-requests/diff-ranges";
 import { shortSha } from "@/lib/format";
 import { Breadcrumbs } from "./breadcrumbs";
@@ -48,18 +48,6 @@ interface LineRange {
   end: number;
 }
 
-function rangeFromHash(hash: string): LineRange | null {
-  const match = hash.match(/^#L(\d+)(?:-L?(\d+))?/);
-  if (!match) return null;
-  const start = Number(match[1]);
-  const end = match[2] ? Number(match[2]) : start;
-  return { start, end: Math.max(start, end) };
-}
-
-function hashFor({ start, end }: LineRange): string {
-  return end > start ? `#L${start}-L${end}` : `#L${start}`;
-}
-
 /**
  * The selected lines are React state mirrored into the URL hash (#L12 or
  * #L12-L20) so links are shareable. State (not the hash) is the source of
@@ -81,7 +69,7 @@ function useSelectedRange(
   useEffect(() => {
     const sync = () => {
       requestedHash.current = window.location.hash;
-      setRange(rangeFromHash(window.location.hash));
+      setRange(parseLineHash(window.location.hash));
     };
     sync();
     // A client-side navigation can commit this page before the browser URL
@@ -102,7 +90,7 @@ function useSelectedRange(
     (start: number, end = start) => {
       const next = { start, end: Math.max(start, end) };
       setRange(next);
-      const hash = hashFor(next);
+      const hash = lineHash(next.start, next.end);
       // Through the router, not history.replaceState: a later refresh restores
       // the canonical URL, and a hash it never saw would reset the selection.
       if ((requestedHash.current ?? window.location.hash) !== hash) {

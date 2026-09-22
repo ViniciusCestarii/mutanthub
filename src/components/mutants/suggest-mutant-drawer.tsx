@@ -29,7 +29,7 @@ import { MUTATION_OPERATORS } from "@/domain/mutants/operators";
 import { generateUnifiedDiff } from "@/domain/mutants/diff";
 import type { MutationOperator } from "@/generated/prisma/enums";
 import { routes } from "@/lib/routes";
-import { shortSha } from "@/lib/format";
+import { lineRangeLabel, shortSha } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   previewDuplicatesAction,
@@ -281,10 +281,7 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
             </div>
             <div>
               <dt className="text-muted-foreground text-[10px] tracking-wide uppercase">Line</dt>
-              <dd data-testid="drawer-line">
-                L{selectedLine}
-                {endLine !== selectedLine ? `–${endLine}` : ""}
-              </dd>
+              <dd data-testid="drawer-line">{lineRangeLabel(selectedLine, endLine, "L")}</dd>
             </div>
           </dl>
 
@@ -434,7 +431,7 @@ export function SuggestMutantDrawer(props: SuggestMutantDrawerProps) {
                     htmlFor="originalCode"
                     required
                     error={errors.originalCode}
-                    hint={`Exactly L${selectedLine}${endLine > selectedLine ? `–L${endLine}` : ""} of the file; change the end line to cover more`}
+                    hint={`Exactly ${lineRangeLabel(selectedLine, endLine, "L")} of the file; change the end line to cover more`}
                   >
                     <Textarea
                       id="originalCode"

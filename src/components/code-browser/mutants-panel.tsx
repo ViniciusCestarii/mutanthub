@@ -10,6 +10,7 @@ import {
   ReviewStatusBadge,
 } from "@/components/mutants/status-badge";
 import { routes } from "@/lib/routes";
+import { lineRangeLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { BrowserMutant } from "./types";
 
@@ -65,8 +66,7 @@ function MutantItem({
           className="bg-muted text-muted-foreground hover:bg-muted/70 shrink-0 rounded px-1 font-mono text-[10px]"
           title="Jump to line"
         >
-          L{mutant.startLine}
-          {mutant.endLine !== mutant.startLine ? `–${mutant.endLine}` : ""}
+          {lineRangeLabel(mutant.startLine, mutant.endLine, "L")}
         </button>
         <Link
           href={routes.mutant(mutant.id)}
@@ -115,10 +115,9 @@ export function MutantsPanel({
   const onLine = selectedLine
     ? mutants.filter((m) => m.startLine <= selectedLine && selectedLine <= m.endLine)
     : [];
-  const rangeLabel =
-    selectedLine && selectedEndLine && selectedEndLine > selectedLine
-      ? `L${selectedLine}–L${selectedEndLine}`
-      : `L${selectedLine}`;
+  const rangeLabel = selectedLine
+    ? lineRangeLabel(selectedLine, selectedEndLine ?? selectedLine, "L")
+    : "";
 
   return (
     <div className="flex h-full flex-col" data-testid="mutants-panel">
