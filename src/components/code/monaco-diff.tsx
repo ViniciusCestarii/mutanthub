@@ -17,6 +17,8 @@ interface MonacoDiffProps {
   height?: number | string;
   /** Render inline (single column) instead of side-by-side. */
   inline?: boolean;
+  /** Let the reader drag the bottom edge to make the diff taller. */
+  resizable?: boolean;
   className?: string;
 }
 
@@ -27,11 +29,17 @@ export function MonacoDiff({
   language = "plaintext",
   height = 240,
   inline = false,
+  resizable = false,
   className,
 }: MonacoDiffProps) {
   const { resolvedTheme } = useTheme();
   return (
-    <div className={className} style={{ height }} data-testid="monaco-diff">
+    <div
+      className={className}
+      // `resize` needs a non-visible overflow; automaticLayout re-lays out Monaco as it changes.
+      style={{ height, ...(resizable ? { resize: "vertical", overflow: "hidden" } : null) }}
+      data-testid="monaco-diff"
+    >
       <DiffEditor
         original={original}
         modified={modified}

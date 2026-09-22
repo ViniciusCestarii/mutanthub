@@ -1,13 +1,11 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Section } from "@/components/shared/section";
-import { DiffBlock } from "@/components/code/diff-block";
-import { MonacoDiff } from "@/components/code/monaco-diff";
+import { DiffTabs } from "./diff-tabs";
 import { CopyButton } from "@/components/shared/copy-button";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { routes } from "@/lib/routes";
 import { languageForPath } from "@/components/code/language";
-import { parseDiffStats } from "@/domain/mutants/diff";
+import { parseDiffStats, splitUnifiedDiff } from "@/domain/mutants/diff";
 
 interface DiffSectionProps {
   /** Enables the "Download patch" link (GET /api/mutants/[id]/patch). */
@@ -32,6 +30,9 @@ export function DiffSection({
 }: DiffSectionProps) {
   const stats = parseDiffStats(gitDiff);
   const language = languageForPath(filePath);
+  // The patch carries context lines and every hunk; the stored snippets only
+  // cover the mutated block, so prefer the patch when there is one.
+  const sides = splitUnifiedDiff(gitDiff) ?? { original: originalCode, modified: mutatedCode };
   return (
     <Section
       title="Diff"
@@ -60,50 +61,12 @@ export function DiffSection({
           This mutant deletes the original lines without replacement.
         </p>
       ) : null}
-      <Tabs defaultValue="side-by-side">
-        <TabsList>
-          <TabsTrigger value="side-by-side">Side by side</TabsTrigger>
-          <TabsTrigger value="unified">Unified</TabsTrigger>
-        </TabsList>
-        <TabsContent value="side-by-side">
-          <MonacoDiff
-            original={originalCode}
-            modified={mutatedCode}
-            language={language}
-            height={height}
-            className="border-border overflow-hidden rounded-md border"
-          />
-        </TabsContent>
-        <TabsContent value="unified" className="space-y-3">
-          <DiffBlock diff={gitDiff} copyable={false} />
-          <div className="grid gap-3 md:grid-cols-2">
-            <SnippetBlock label="Original" code={originalCode} tone="del" />
-            <SnippetBlock label="Mutant" code={mutatedCode} tone="add" />
-          </div>
-        </TabsContent>
-      </Tabs>
+      <DiffTabs
+        original={sides.original}
+        modified={sides.modified}
+        language={language}
+        height={height}
+      />
     </Section>
-  );
-}
-
-function SnippetBlock({ label, code, tone }: { label: string; code: string; tone: "add" | "del" }) {
-  return (
-    <div className="border-border rounded-md border">
-      <div className="border-border text-muted-foreground border-b px-3 py-1 text-[11px] font-medium tracking-wide uppercase">
-        {label}
-      </div>
-      <pre
-        className={`overflow-x-auto px-3 py-2 font-mono text-xs leading-5 ${
-          tone === "add" ? "bg-emerald-500/5" : "bg-rose-500/5"
-        }`}
-        data-testid={tone === "add" ? "mutated-code" : "original-code"}
-      >
-        {code.trim().length === 0 ? (
-          <span className="text-muted-foreground italic">(lines deleted)</span>
-        ) : (
-          <code>{code}</code>
-        )}
-      </pre>
-    </div>
   );
 }

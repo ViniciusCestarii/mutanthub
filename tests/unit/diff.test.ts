@@ -4,6 +4,7 @@ import {
   generateUnifiedDiff,
   looksLikeUnifiedDiff,
   parseDiffStats,
+  splitUnifiedDiff,
 } from "@/domain/mutants/diff";
 
 const sample = `--- a/src/x.c
@@ -66,6 +67,29 @@ describe("generateUnifiedDiff", () => {
     });
     expect(diff).toContain("@@ -3,2 +3,0 @@");
     expect(parseDiffStats(diff)).toMatchObject({ additions: 0, deletions: 2 });
+  });
+});
+
+describe("splitUnifiedDiff", () => {
+  it("keeps context lines on both sides", () => {
+    expect(splitUnifiedDiff(sample)).toEqual({
+      original: "context\nif (a > b)",
+      modified: "context\nif (a >= b)",
+    });
+  });
+
+  it("separates hunks with an ellipsis and drops file headers", () => {
+    const diff =
+      "diff --git a/f b/f\nindex 111..222 100644\n--- a/f\n+++ b/f\n@@ -1,2 +1,2 @@\n a\n-b\n+B\n@@ -9,2 +9,2 @@\n y\n-z\n+Z\n";
+    expect(splitUnifiedDiff(diff)).toEqual({
+      original: "a\nb\n…\ny\nz",
+      modified: "a\nB\n…\ny\nZ",
+    });
+  });
+
+  it("returns null for text that is not a diff", () => {
+    expect(splitUnifiedDiff("just code")).toBeNull();
+    expect(splitUnifiedDiff("")).toBeNull();
   });
 });
 
