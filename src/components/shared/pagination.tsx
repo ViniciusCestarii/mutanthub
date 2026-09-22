@@ -10,6 +10,28 @@ interface PaginationProps {
   hrefFor: (page: number) => string;
 }
 
+function PageButton({
+  disabled,
+  href,
+  children,
+}: {
+  disabled: boolean;
+  href: string;
+  children: React.ReactNode;
+}) {
+  if (disabled)
+    return (
+      <Button variant="outline" size="sm" disabled>
+        {children}
+      </Button>
+    );
+  return (
+    <Button asChild variant="outline" size="sm">
+      <Link href={href}>{children}</Link>
+    </Button>
+  );
+}
+
 export function Pagination({ page, pageSize, total, hrefFor }: PaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   if (totalPages <= 1) return null;
@@ -19,16 +41,12 @@ export function Pagination({ page, pageSize, total, hrefFor }: PaginationProps) 
         Page {page} of {totalPages} · {total} total
       </span>
       <div className="flex gap-1">
-        <Button asChild variant="outline" size="sm" disabled={page <= 1}>
-          <Link href={hrefFor(Math.max(1, page - 1))} aria-disabled={page <= 1}>
-            <ChevronLeft className="size-3.5" aria-hidden /> Prev
-          </Link>
-        </Button>
-        <Button asChild variant="outline" size="sm" disabled={page >= totalPages}>
-          <Link href={hrefFor(Math.min(totalPages, page + 1))} aria-disabled={page >= totalPages}>
-            Next <ChevronRight className="size-3.5" aria-hidden />
-          </Link>
-        </Button>
+        <PageButton disabled={page <= 1} href={hrefFor(page - 1)}>
+          <ChevronLeft className="size-3.5" aria-hidden /> Prev
+        </PageButton>
+        <PageButton disabled={page >= totalPages} href={hrefFor(page + 1)}>
+          Next <ChevronRight className="size-3.5" aria-hidden />
+        </PageButton>
       </div>
     </div>
   );
