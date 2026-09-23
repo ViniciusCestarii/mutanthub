@@ -1,6 +1,6 @@
 import "server-only";
 import type { Principal } from "@/domain/auth/permissions";
-import { isAdmin } from "@/domain/auth/permissions";
+import { canManageProject } from "@/domain/auth/permissions";
 import { locateOriginalCode } from "@/domain/kill-claims/applies";
 import { parseImportFile, ImportParseError } from "@/domain/import/parse";
 import { prepareRow, type ImportRow, type RowIssue } from "@/domain/import/schema";
@@ -38,7 +38,7 @@ interface Prepared {
 }
 
 /**
- * Bulk import of tool-generated mutants. Admin only; rows become approved
+ * Bulk import of tool-generated mutants. Project maintainers and admins; rows become approved
  * mutants with the tool's commands as evidence. A dry run validates every row
  * (schema, commit, code location at that commit, duplicates) without writing.
  */
@@ -50,7 +50,7 @@ export const importService = {
     fileName: string | null,
     override: { toolName?: string; toolVersion?: string } = {},
   ) {
-    assertAdmin(principal);
+    assertCanImport(principal, project);
     return prepare(project, text, fileName, override);
   },
 
@@ -61,7 +61,7 @@ export const importService = {
     fileName: string | null,
     override: { toolName?: string; toolVersion?: string } = {},
   ) {
-    assertAdmin(principal);
+    assertCanImport(principal, project);
     await enforceRateLimit({
       action: "import",
       subject: principal!.id,
@@ -142,8 +142,12 @@ export const importService = {
   },
 };
 
-function assertAdmin(principal: Principal | null): asserts principal is Principal {
-  if (!principal || !isAdmin(principal)) throw forbidden("Only administrators can import mutants");
+function assertCanImport(
+  principal: Principal | null,
+  project: Project,
+): asserts principal is Principal {
+  if (!principal || !canManageProject(principal, project.id))
+    throw forbidden("Only project maintainers and administrators can import mutants");
 }
 
 async function prepare(

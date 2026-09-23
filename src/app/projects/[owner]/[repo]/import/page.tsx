@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/server/auth/session";
 import { projectService } from "@/server/services/project-service";
 import { importService } from "@/server/services/import-service";
-import { isAdmin } from "@/domain/auth/permissions";
+import { canManageProject } from "@/domain/auth/permissions";
 import { IMPORT_MAX_ROWS } from "@/domain/import/schema";
 import { AppError, isAppError } from "@/lib/errors";
 import { routes } from "@/lib/routes";
@@ -56,11 +56,16 @@ export default async function ImportPage({ params }: { params: Params }) {
     if (isAppError(e) && e.code === "NOT_FOUND") notFound();
     throw e;
   }
-  if (!isAdmin(user)) {
+  if (!canManageProject(user, project.id)) {
     return (
       <PageContainer>
         <ErrorState
-          error={new AppError("FORBIDDEN", "Only administrators can import mutants.")}
+          error={
+            new AppError(
+              "FORBIDDEN",
+              "Only project maintainers and administrators can import mutants.",
+            )
+          }
           backHref={routes.project(owner, repo)}
           backLabel="Back to project"
         />

@@ -1,13 +1,14 @@
-How administrators bulk-import the output of a mutation testing tool: the file format, what is checked, and what gets created.
+How project maintainers and administrators bulk-import the output of a mutation testing tool: the file format, what is checked, and what gets created.
 
 # Importing mutants
 
 Running a mutation testing tool over a file typically yields dozens or hundreds of surviving
-mutants. Instead of suggesting them one by one, an administrator can upload the tool's output
+mutants. Instead of suggesting them one by one, a project maintainer or administrator can upload the tool's output
 and import all of them at once from **Project → Settings → Import mutants**
 (`/projects/<owner>/<repo>/import`).
 
-Imports are restricted to global administrators (`ADMIN_GITHUB_USERNAMES`) because the mutants
+Imports are restricted to the project's maintainers and global administrators
+(`ADMIN_GITHUB_USERNAMES`) because the mutants
 are created **directly as approved**: the tool's run is taken as the evidence a reviewer would
 otherwise ask for. Everything else works as for hand-written mutants: reproductions, comments,
 killing-test claims, classification and exports.

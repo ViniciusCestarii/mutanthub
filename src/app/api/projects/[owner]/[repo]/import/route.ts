@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/projects/:owner/:repo/import — multipart upload of a mutants file.
  * Fields: `file` (JSON or JSON Lines), `mode` ("dry-run" | "commit"),
- * optional `toolName` and `toolVersion`. Admin only; same-origin only.
+ * optional `toolName` and `toolVersion`. Project maintainers and admins; same-origin only.
  */
 export async function POST(
   request: Request,

@@ -116,17 +116,15 @@ export default async function ProjectSettingsPage({ params }: { params: Params }
           <Section title="GitHub access" description="How repository contents are read">
             <GitHubAccessStatus access={githubAccess} />
           </Section>
-          {user.globalRole === "ADMIN" ? (
-            <Section title="Bulk import" description="Administrators only">
-              <p className="text-muted-foreground mb-2 text-xs">
-                Upload the output of a mutation testing tool; rows are validated against the
-                repository and created as approved mutants.
-              </p>
-              <Button asChild variant="outline" size="sm" data-testid="import-link">
-                <Link href={routes.projectImport(owner, repo)}>Import mutants</Link>
-              </Button>
-            </Section>
-          ) : null}
+          <Section title="Bulk import">
+            <p className="text-muted-foreground mb-2 text-xs">
+              Upload the output of a mutation testing tool; rows are validated against the
+              repository and created as approved mutants.
+            </p>
+            <Button asChild variant="outline" size="sm" data-testid="import-link">
+              <Link href={routes.projectImport(owner, repo)}>Import mutants</Link>
+            </Button>
+          </Section>
           <Section title="Administration">
             <ProjectAdminControls
               projectId={project.id}

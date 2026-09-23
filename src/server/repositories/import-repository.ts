@@ -94,7 +94,7 @@ export const importRepository = {
           },
         });
         const ids: number[] = [];
-        const provenance = `Imported from ${params.toolName}${params.toolVersion ? ` ${params.toolVersion}` : ""} by an administrator`;
+        const provenance = `Imported from ${params.toolName}${params.toolVersion ? ` ${params.toolVersion}` : ""}`;
         for (const m of params.mutants) {
           const { submission, ...fields } = m;
           const created = await tx.mutant.create({

@@ -5,7 +5,8 @@ import { expect, test, type Page } from "@playwright/test";
 /**
  * Bulk import: an administrator uploads a tool's output, sees a dry-run
  * report (valid rows, duplicates, errors), imports, and the mutants appear
- * as approved with the tool as their source. Non-admins are refused.
+ * as approved with the tool as their source. Project maintainers can import
+ * too; other members are refused.
  */
 
 const EXAMPLE = path.join(process.cwd(), "docs/examples/import-example.json");
@@ -58,7 +59,7 @@ test.describe("bulk import", () => {
       "APPROVED",
     );
     await expect(page.getByTestId("status-history")).toContainText(
-      "Imported from example-mutator 1.0.0 by an administrator",
+      "Imported from example-mutator 1.0.0",
     );
   });
 
@@ -74,16 +75,34 @@ test.describe("bulk import", () => {
     await expect(page.getByTestId("import-commit")).toBeDisabled();
   });
 
-  test("non-admins cannot open the page or call the endpoint", async ({ page }) => {
-    await signInAs(page, "frank");
-    await page.goto("/projects/curl/curl/import");
-    await expect(page.getByText(/Only administrators can import/)).toBeVisible();
-    const res = await page.request.post("/api/projects/curl/curl/import", {
-      multipart: {
-        file: { name: "m.json", mimeType: "application/json", buffer: readFileSync(EXAMPLE) },
-        mode: "commit",
-      },
-    });
-    expect(res.status()).toBe(403);
+  test("a maintainer of the project can import", async ({ page }) => {
+    await signInAs(page, "alice");
+    await page.goto("/projects/curl/curl/settings");
+    await page.waitForLoadState("networkidle");
+    await page.getByTestId("import-link").click();
+    await expect(page.getByTestId("import-page")).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await page.getByTestId("import-file").setInputFiles(EXAMPLE);
+    await page.getByTestId("import-dry-run").click();
+    await expect(page.getByTestId("import-report")).toContainText("example-mutator 1.0.0");
   });
+
+  for (const username of ["frank", "erin"]) {
+    test(`${username} (not a maintainer) cannot open the page or call the endpoint`, async ({
+      page,
+    }) => {
+      await signInAs(page, username);
+      await page.goto("/projects/curl/curl/import");
+      await expect(
+        page.getByText(/Only project maintainers and administrators can import/),
+      ).toBeVisible();
+      const res = await page.request.post("/api/projects/curl/curl/import", {
+        multipart: {
+          file: { name: "m.json", mimeType: "application/json", buffer: readFileSync(EXAMPLE) },
+          mode: "commit",
+        },
+      });
+      expect(res.status()).toBe(403);
+    });
+  }
 });
