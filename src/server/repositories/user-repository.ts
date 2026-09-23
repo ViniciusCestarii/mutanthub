@@ -64,6 +64,7 @@ export const userRepository = {
         where: { id: byUsername.id },
         data: {
           githubId: identity.githubId,
+          githubUsername: identity.githubUsername,
           displayName: identity.displayName,
           avatarUrl: identity.avatarUrl,
           email: identity.email ?? byUsername.email,
