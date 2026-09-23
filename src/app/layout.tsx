@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/layout/theme-provider";
-import { THEME_BOOTSTRAP_SCRIPT } from "@/components/layout/theme-script";
+import { ThemeBootstrap } from "@/components/layout/theme-bootstrap";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppHeader } from "@/components/layout/app-header";
@@ -12,7 +12,6 @@ import { reviewService } from "@/server/services/review-service";
 import { notificationService } from "@/server/services/notification-service";
 import { relativeTime } from "@/lib/format";
 import { headers } from "next/headers";
-import Script from "next/script";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -40,11 +39,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <ThemeBootstrap nonce={nonce} />
+      </head>
       <body className="bg-background text-foreground flex min-h-full flex-col">
-        {/* Injected by Next before hydration (outside React reconciliation) with the CSP nonce. */}
-        <Script id="theme-bootstrap" strategy="beforeInteractive" nonce={nonce}>
-          {THEME_BOOTSTRAP_SCRIPT}
-        </Script>
         <ThemeProvider>
           <TooltipProvider delayDuration={200}>
             <AppHeader

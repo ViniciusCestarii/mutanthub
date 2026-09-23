@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 import { THEME_STORAGE_KEY, type ResolvedTheme, type Theme } from "./theme-script";
 
 interface ThemeContextValue {
@@ -37,14 +45,21 @@ function applyTheme(resolved: ResolvedTheme) {
 
 /**
  * Minimal light/dark/system theme provider. The document class is applied
- * before hydration by the inline script in `theme-script.ts` (rendered by the
- * server layout with the CSP nonce). This provider renders identically on the
- * server and on the first client pass, then syncs its state from storage after
- * mount so hydration never has to reconcile a mismatch.
+ * before hydration by the inline script in `theme-script.ts` (rendered via
+ * `ThemeBootstrap` with the CSP nonce) and re-applied on mount in case a root
+ * layout remount wiped it. This provider renders identically on the server and
+ * on the first client pass, then syncs its state from storage after mount so
+ * hydration never has to reconcile a mismatch.
  */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("system");
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    // A root layout remount (dev Strict Mode, server action redirect) resets
+    // <html> attributes and wipes the bootstrap's class; re-apply before paint.
+    applyTheme(resolve(readStoredTheme()));
+  }, []);
 
   useEffect(() => {
     // Post-mount sync from browser-only sources (localStorage, matchMedia); the
