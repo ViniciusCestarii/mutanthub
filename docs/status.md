@@ -43,7 +43,7 @@ What is implemented and what is planned.
   in the pull request check run, and reflected in the mutant's outcome and history.
 - Dataset exports: streamed JSON and CSV over the list filters, per-mutant patch download, and
   frozen, hashed, citable snapshots published by administrators from the Dataset page.
-- Bulk import: administrators upload the output of a mutation testing tool (JSON or JSON Lines);
+- Bulk import: maintainers and administrators upload the output of a mutation testing tool (JSON or JSON Lines);
   every row is validated against the repository at its commit and against the catalogue for
   duplicates in a dry run, then imported as approved mutants with the tool recorded as source.
 - Drift checks: every open mutant is looked up at the project's current default branch and
