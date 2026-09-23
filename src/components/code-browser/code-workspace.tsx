@@ -151,6 +151,7 @@ export function CodeWorkspace({
 
   const currentUrl = routes.projectCode(project.owner, project.repo, path || undefined, {
     ref: gitRef,
+    pr: pullRequest?.number,
     line: selectedLine ?? undefined,
     endLine: selectedRange?.end,
   });
@@ -164,6 +165,7 @@ export function CodeWorkspace({
       owner={project.owner}
       repo={project.repo}
       gitRef={gitRef}
+      pr={pullRequest?.number}
       currentPath={path}
       initialCache={treeCache}
       onNavigate={onNavigate}
@@ -223,7 +225,13 @@ export function CodeWorkspace({
         >
           <FolderTree className="size-3.5" aria-hidden /> Files
         </Button>
-        <Breadcrumbs owner={project.owner} repo={project.repo} path={path} gitRef={gitRef} />
+        <Breadcrumbs
+          owner={project.owner}
+          repo={project.repo}
+          path={path}
+          gitRef={gitRef}
+          pr={pullRequest?.number}
+        />
         <div className="ml-auto flex items-center gap-2">
           <CommitSelector
             owner={project.owner}
@@ -318,6 +326,7 @@ export function CodeWorkspace({
                 owner={project.owner}
                 repo={project.repo}
                 gitRef={gitRef}
+                pr={pullRequest?.number}
                 path={path}
                 entries={target.dir.entries}
               />

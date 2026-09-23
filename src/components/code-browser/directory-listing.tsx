@@ -8,6 +8,7 @@ interface DirectoryListingProps {
   owner: string;
   repo: string;
   gitRef: string;
+  pr?: number;
   path: string;
   entries: TreeEntry[];
 }
@@ -20,7 +21,14 @@ function formatSize(size: number | null): string {
 }
 
 /** Compact table of a directory's contents. */
-export function DirectoryListing({ owner, repo, gitRef, path, entries }: DirectoryListingProps) {
+export function DirectoryListing({
+  owner,
+  repo,
+  gitRef,
+  pr,
+  path,
+  entries,
+}: DirectoryListingProps) {
   const parent = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
   if (entries.length === 0) {
     return <EmptyState icon={FolderOpen} title="Empty directory" compact className="m-4" />;
@@ -40,7 +48,7 @@ export function DirectoryListing({ owner, repo, gitRef, path, entries }: Directo
             <tr>
               <td colSpan={3} className="py-1.5">
                 <Link
-                  href={routes.projectCode(owner, repo, parent || undefined, { ref: gitRef })}
+                  href={routes.projectCode(owner, repo, parent || undefined, { ref: gitRef, pr })}
                   className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 font-mono text-xs hover:underline"
                 >
                   <CornerLeftUp className="size-3.5" aria-hidden /> ..
@@ -52,7 +60,7 @@ export function DirectoryListing({ owner, repo, gitRef, path, entries }: Directo
             <tr key={entry.path} className="hover:bg-muted/40">
               <td className="py-1.5 pr-3">
                 <Link
-                  href={routes.projectCode(owner, repo, entry.path, { ref: gitRef })}
+                  href={routes.projectCode(owner, repo, entry.path, { ref: gitRef, pr })}
                   className="inline-flex items-center gap-1.5 font-mono text-xs hover:underline"
                 >
                   {entry.type === "dir" ? (
