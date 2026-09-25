@@ -1,6 +1,11 @@
 import "server-only";
 import type { Principal } from "@/domain/auth/permissions";
-import { canReviewProject, canSubmitMutant, isMutantOwner } from "@/domain/auth/permissions";
+import {
+  canEditMutantDescription,
+  canReviewProject,
+  canSubmitMutant,
+  isMutantOwner,
+} from "@/domain/auth/permissions";
 import { computeFingerprint } from "@/domain/mutants/fingerprint";
 import { generateTitle } from "@/domain/mutants/title";
 import { generateUnifiedDiff, looksLikeUnifiedDiff } from "@/domain/mutants/diff";
@@ -15,6 +20,7 @@ import { summarizeValidations } from "@/domain/mutants/validation-summary";
 import { AppError, forbidden, notFound, validationError } from "@/lib/errors";
 import { enforceRateLimit, RATE_LIMITS } from "@/server/infra/rate-limit";
 import {
+  editDescriptionSchema,
   editMutantSchema,
   fieldErrors,
   mutantListFilterSchema,
@@ -47,7 +53,12 @@ export interface MutantDetailView {
   canReview: boolean;
   duplicateCheck: DuplicateCheck;
   /** Submitter lifecycle permissions for the current principal. */
-  lifecycle: { canEdit: boolean; canResubmit: boolean; canWithdraw: boolean };
+  lifecycle: {
+    canEdit: boolean;
+    canEditDescription: boolean;
+    canResubmit: boolean;
+    canWithdraw: boolean;
+  };
 }
 
 export const mutantService = {
@@ -242,6 +253,7 @@ export const mutantService = {
       duplicateCheck,
       lifecycle: {
         canEdit: isMutantOwner(principal, mutant) && canEditSubmission(mutant.reviewStatus),
+        canEditDescription: canEditMutantDescription(principal, mutant),
         canResubmit: isMutantOwner(principal, mutant) && canResubmit(mutant.reviewStatus),
         canWithdraw: isMutantOwner(principal, mutant) && canWithdraw(mutant.reviewStatus),
       },
@@ -346,6 +358,38 @@ export const mutantService = {
       excludeMutantId: mutant.id,
     });
     return { mutant: updated, duplicates, changedFields };
+  },
+
+  /**
+   * Owner updates only the description. Allowed at any review status, so an
+   * approved mutant can still be documented better without re-entering review.
+   */
+  async editDescription(principal: Principal | null, rawInput: unknown) {
+    if (!principal) throw forbidden("Sign in to edit a description");
+    const parsed = editDescriptionSchema.safeParse(rawInput);
+    if (!parsed.success)
+      throw validationError("Please fix the highlighted fields", fieldErrors(parsed.error));
+    const input = parsed.data;
+
+    const mutant = await mutantRepository.findDetail(input.mutantId);
+    if (!mutant) throw notFound("Mutant");
+    if (!canEditMutantDescription(principal, mutant))
+      throw forbidden("Only the submitter can edit this description");
+    await enforceRateLimit({
+      ...RATE_LIMITS.submitMutant,
+      action: "edit-mutant",
+      subject: principal.id,
+    });
+
+    const description = input.description ?? null;
+    if (description === mutant.description) return { mutant, changed: false };
+    const updated = await mutantRepository.updateDescription({
+      mutantId: mutant.id,
+      projectId: mutant.projectId,
+      editedById: principal.id,
+      description,
+    });
+    return { mutant: updated, changed: true };
   },
 
   /** Submitter re-opens a NEEDS_INFORMATION or WITHDRAWN mutant for review. */

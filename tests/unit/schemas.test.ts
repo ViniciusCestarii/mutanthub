@@ -5,6 +5,7 @@ import {
   setProjectActiveSchema,
   createCommentSchema,
   createValidationSchema,
+  editDescriptionSchema,
   editMutantSchema,
   withdrawMutantSchema,
   fieldErrors,
@@ -162,6 +163,22 @@ describe("lifecycle schemas", () => {
     expect(
       editMutantSchema.safeParse({ ...rest, mutantId: "12", mutatedCode: rest.originalCode })
         .success,
+    ).toBe(false);
+  });
+
+  it("description edits trim, clear on empty and enforce the limit", () => {
+    expect(editDescriptionSchema.parse({ mutantId: "4", description: " Why it matters " })).toEqual(
+      { mutantId: 4, description: "Why it matters" },
+    );
+    expect(editDescriptionSchema.parse({ mutantId: "4", description: "  " })).toEqual({
+      mutantId: 4,
+      description: undefined,
+    });
+    expect(
+      editDescriptionSchema.safeParse({
+        mutantId: "4",
+        description: "x".repeat(LIMITS.description + 1),
+      }).success,
     ).toBe(false);
   });
 

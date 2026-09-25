@@ -146,6 +146,15 @@ export const editMutantSchema = z
 
 export type EditMutantInput = z.infer<typeof editMutantSchema>;
 
+/**
+ * Editing only the description. Unlike a full edit this is allowed at any
+ * review status: the description is prose, not evidence.
+ */
+export const editDescriptionSchema = z.object({
+  mutantId: z.coerce.number().int().positive(),
+  description: optionalText(LIMITS.description),
+});
+
 export const withdrawMutantSchema = z.object({
   mutantId: z.coerce.number().int().positive(),
   reason: optionalText(LIMITS.reviewComment),

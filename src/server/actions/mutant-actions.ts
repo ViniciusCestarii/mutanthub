@@ -153,6 +153,18 @@ export async function editMutantAction(
   });
 }
 
+export async function editDescriptionAction(
+  _prev: ActionResult<{ mutantId: number; changed: boolean }> | null,
+  formData: FormData,
+): Promise<ActionResult<{ mutantId: number; changed: boolean }>> {
+  return runAction(async () => {
+    const user = await getCurrentUser();
+    const { mutant, changed } = await mutantService.editDescription(user, formToObject(formData));
+    revalidatePath(routes.mutant(mutant.id));
+    return { mutantId: mutant.id, changed };
+  });
+}
+
 export async function resubmitMutantAction(
   _prev: ActionResult<{ mutantId: number }> | null,
   formData: FormData,

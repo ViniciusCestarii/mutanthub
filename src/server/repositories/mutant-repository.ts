@@ -480,6 +480,48 @@ export const mutantRepository = {
     });
   },
 
+  /** Updates only the description, recording the change like any other edit. */
+  updateDescription(params: {
+    mutantId: number;
+    projectId: string;
+    editedById: string;
+    description: string | null;
+  }) {
+    const summary = "Edited: description";
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.mutant.update({
+        where: { id: params.mutantId },
+        data: { description: params.description },
+      });
+      await tx.mutantStatusHistory.create({
+        data: {
+          mutantId: params.mutantId,
+          kind: "SUBMISSION",
+          previousValue: null,
+          newValue: "EDITED",
+          changedById: params.editedById,
+          comment: summary,
+        },
+      });
+      await tx.activity.create({
+        data: {
+          type: "MUTANT_EDITED",
+          actorId: params.editedById,
+          projectId: params.projectId,
+          mutantId: params.mutantId,
+          payload: { changedFields: ["description"], reason: null },
+        },
+      });
+      await notificationRepository.recordInTx(tx, {
+        type: "MUTANT_EDITED",
+        actorId: params.editedById,
+        mutantId: params.mutantId,
+        detail: summary,
+      });
+      return updated;
+    });
+  },
+
   /** Streams matching mutants in id order, in batches, up to `limit` rows. */
   async *iterateForExport(
     where: MutantListWhere,
