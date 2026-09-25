@@ -155,6 +155,12 @@ export const editDescriptionSchema = z.object({
   description: optionalText(LIMITS.description),
 });
 
+/** Editing only the title, allowed at any review status. Empty regenerates it. */
+export const editTitleSchema = z.object({
+  mutantId: z.coerce.number().int().positive(),
+  title: optionalText(LIMITS.title),
+});
+
 export const withdrawMutantSchema = z.object({
   mutantId: z.coerce.number().int().positive(),
   reason: optionalText(LIMITS.reviewComment),

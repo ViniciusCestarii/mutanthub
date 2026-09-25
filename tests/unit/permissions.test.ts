@@ -3,7 +3,7 @@ import {
   canAccessReviewQueue,
   canChangeMutationStatus,
   canEditComment,
-  canEditMutantDescription,
+  canEditMutantText,
   canManageProject,
   canRegisterProject,
   canReviewProject,
@@ -79,11 +79,12 @@ describe("permissions", () => {
     expect(isMutantOwner(null, { createdById: "ctb" })).toBe(false);
   });
 
-  it("descriptions can be edited by their owner or an admin, but not by reviewers", () => {
-    expect(canEditMutantDescription(contributor, { createdById: "ctb" })).toBe(true);
-    expect(canEditMutantDescription(admin, { createdById: "ctb" })).toBe(true);
-    expect(canEditMutantDescription(reviewer, { createdById: "ctb" })).toBe(false);
-    expect(canEditMutantDescription(null, { createdById: "ctb" })).toBe(false);
+  it("titles and descriptions can be edited by their owner or an admin, but not by reviewers", () => {
+    expect(canEditMutantText(contributor, { createdById: "ctb" })).toBe(true);
+    expect(canEditMutantText(admin, { createdById: "ctb" })).toBe(true);
+    expect(canEditMutantText(reviewer, { createdById: "ctb" })).toBe(false);
+    expect(canEditMutantText(maintainer, { createdById: "ctb" })).toBe(false);
+    expect(canEditMutantText(null, { createdById: "ctb" })).toBe(false);
   });
 
   it("comments can be edited by their author or a project reviewer", () => {

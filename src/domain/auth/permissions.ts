@@ -91,10 +91,10 @@ export function isMutantOwner(
 }
 
 /**
- * The description is free-form prose, so its owner may update it at any
- * review status (full submission edits are limited to pending mutants).
+ * The title and description are free-form prose, so their owner may update
+ * them at any review status (full submission edits are limited to pending mutants).
  */
-export function canEditMutantDescription(
+export function canEditMutantText(
   p: Principal | null | undefined,
   mutant: { createdById: string },
 ): boolean {
