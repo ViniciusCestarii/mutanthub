@@ -119,6 +119,38 @@ test.describe("submission lifecycle", () => {
     );
   });
 
+  test("submitter edits the description after approval", async ({ page }) => {
+    await signInAs(page, "alice");
+    await page.goto(`/review?selected=${mutantId}`);
+    await page.waitForLoadState("networkidle");
+    const detail = page.getByTestId("review-detail");
+    await detail.getByTestId("review-action-APPROVE").click();
+    await expect(detail.getByTestId("review-status").first()).toHaveAttribute(
+      "data-status",
+      "APPROVED",
+    );
+
+    await signInAs(page, "frank");
+    await page.goto(`/mutants/${mutantId}`);
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("lifecycle-edit")).toHaveCount(0);
+    await page.getByTestId("description-edit").click();
+    await page.getByTestId("description-input").fill("Off-by-one in the **port** bound.");
+    await page.getByTestId("description-submit").click();
+    await expect(page.getByTestId("description-form")).toHaveCount(0);
+    await expect(page.locator("strong", { hasText: "port" })).toBeVisible();
+    await expect(page.getByTestId("review-status").first()).toHaveAttribute(
+      "data-status",
+      "APPROVED",
+    );
+    await expect(page.getByTestId("status-history")).toContainText("Edited: description");
+
+    await signInAs(page, "erin");
+    await page.goto(`/mutants/${mutantId}`);
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("description-edit")).toHaveCount(0);
+  });
+
   test("a reproduction can reference the killing test", async ({ page }) => {
     await signInAs(page, "erin");
     await page.goto(`/mutants/${mutantId}`);

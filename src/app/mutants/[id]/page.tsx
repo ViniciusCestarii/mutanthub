@@ -14,6 +14,7 @@ import { DiscussionSection } from "@/components/mutant-detail/discussion-section
 import { ReproductionSection } from "@/components/mutant-detail/reproduction-section";
 import { HistorySection } from "@/components/mutant-detail/history-section";
 import { ReviewActions } from "@/components/review/review-actions";
+import { DescriptionSection } from "@/components/mutant-detail/description-section";
 import { LifecycleActions } from "@/components/mutant-detail/lifecycle-actions";
 import { KillClaimsSection } from "@/components/mutant-detail/kill-claims-section";
 import { killClaimService } from "@/server/services/kill-claim-service";
@@ -74,11 +75,13 @@ export default async function MutantPage({ params }: { params: Promise<{ id: str
             mutatedCode={mutant.mutatedCode}
             gitDiff={mutant.gitDiff}
           />
-          {mutant.description ? (
-            <Section title="Description">
-              <Markdown source={mutant.description} />
-            </Section>
-          ) : null}
+          <DescriptionSection
+            mutantId={mutant.id}
+            description={mutant.description}
+            canEdit={view.lifecycle.canEditDescription}
+          >
+            {mutant.description ? <Markdown source={mutant.description} /> : null}
+          </DescriptionSection>
           <EvidenceSection submissions={mutant.submissions} />
           <DiscussionSection
             mutantId={mutant.id}
