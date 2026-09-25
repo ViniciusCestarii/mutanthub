@@ -8,6 +8,7 @@ import {
 } from "@/components/mutants/status-badge";
 import { UserChip } from "@/components/shared/user-chip";
 import { CopyButton } from "@/components/shared/copy-button";
+import { EditableTitle } from "@/components/mutant-detail/editable-title";
 import { routes } from "@/lib/routes";
 import { absoluteDateTime, relativeTime, shortSha } from "@/lib/format";
 
@@ -16,9 +17,11 @@ interface MutantHeaderProps {
   /** Compact variant used inside the review panel. */
   compact?: boolean;
   actions?: React.ReactNode;
+  /** Shows an inline title editor (owner or admin). */
+  canEditTitle?: boolean;
 }
 
-export function MutantHeader({ mutant, compact, actions }: MutantHeaderProps) {
+export function MutantHeader({ mutant, compact, actions, canEditTitle }: MutantHeaderProps) {
   const { project, revision } = mutant;
   const owner = project.githubOwner;
   const repo = project.githubRepository;
@@ -26,6 +29,7 @@ export function MutantHeader({ mutant, compact, actions }: MutantHeaderProps) {
     mutant.endLine > mutant.startLine
       ? `L${mutant.startLine}-L${mutant.endLine}`
       : `L${mutant.startLine}`;
+  const titleClass = compact ? "text-base font-semibold" : "text-xl font-semibold tracking-tight";
 
   return (
     <header className="space-y-2" data-testid="mutant-header">
@@ -34,11 +38,11 @@ export function MutantHeader({ mutant, compact, actions }: MutantHeaderProps) {
           <div className="text-muted-foreground text-xs">
             Mutation <span className="font-mono">#{mutant.id}</span>
           </div>
-          <h1
-            className={compact ? "text-base font-semibold" : "text-xl font-semibold tracking-tight"}
-          >
-            {mutant.title}
-          </h1>
+          {canEditTitle ? (
+            <EditableTitle mutantId={mutant.id} title={mutant.title} className={titleClass} />
+          ) : (
+            <h1 className={titleClass}>{mutant.title}</h1>
+          )}
         </div>
         {actions}
       </div>

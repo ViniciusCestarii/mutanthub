@@ -1,7 +1,7 @@
 import "server-only";
 import type { Principal } from "@/domain/auth/permissions";
 import {
-  canEditMutantDescription,
+  canEditMutantText,
   canReviewProject,
   canSubmitMutant,
   isMutantOwner,
@@ -22,6 +22,7 @@ import { enforceRateLimit, RATE_LIMITS } from "@/server/infra/rate-limit";
 import {
   editDescriptionSchema,
   editMutantSchema,
+  editTitleSchema,
   fieldErrors,
   mutantListFilterSchema,
   resubmitMutantSchema,
@@ -55,7 +56,7 @@ export interface MutantDetailView {
   /** Submitter lifecycle permissions for the current principal. */
   lifecycle: {
     canEdit: boolean;
-    canEditDescription: boolean;
+    canEditText: boolean;
     canResubmit: boolean;
     canWithdraw: boolean;
   };
@@ -253,7 +254,7 @@ export const mutantService = {
       duplicateCheck,
       lifecycle: {
         canEdit: isMutantOwner(principal, mutant) && canEditSubmission(mutant.reviewStatus),
-        canEditDescription: canEditMutantDescription(principal, mutant),
+        canEditText: canEditMutantText(principal, mutant),
         canResubmit: isMutantOwner(principal, mutant) && canResubmit(mutant.reviewStatus),
         canWithdraw: isMutantOwner(principal, mutant) && canWithdraw(mutant.reviewStatus),
       },
@@ -373,7 +374,7 @@ export const mutantService = {
 
     const mutant = await mutantRepository.findDetail(input.mutantId);
     if (!mutant) throw notFound("Mutant");
-    if (!canEditMutantDescription(principal, mutant))
+    if (!canEditMutantText(principal, mutant))
       throw forbidden("Only the submitter can edit this description");
     await enforceRateLimit({
       ...RATE_LIMITS.submitMutant,
@@ -383,11 +384,49 @@ export const mutantService = {
 
     const description = input.description ?? null;
     if (description === mutant.description) return { mutant, changed: false };
-    const updated = await mutantRepository.updateDescription({
+    const updated = await mutantRepository.updateText({
       mutantId: mutant.id,
       projectId: mutant.projectId,
       editedById: principal.id,
-      description,
+      fields: { description },
+    });
+    return { mutant: updated, changed: true };
+  },
+
+  /**
+   * Owner updates only the title, at any review status. An empty title is
+   * regenerated from the operator and location, as on submission.
+   */
+  async editTitle(principal: Principal | null, rawInput: unknown) {
+    if (!principal) throw forbidden("Sign in to edit a title");
+    const parsed = editTitleSchema.safeParse(rawInput);
+    if (!parsed.success)
+      throw validationError("Please fix the highlighted fields", fieldErrors(parsed.error));
+    const input = parsed.data;
+
+    const mutant = await mutantRepository.findDetail(input.mutantId);
+    if (!mutant) throw notFound("Mutant");
+    if (!canEditMutantText(principal, mutant))
+      throw forbidden("Only the submitter can edit this title");
+    await enforceRateLimit({
+      ...RATE_LIMITS.submitMutant,
+      action: "edit-mutant",
+      subject: principal.id,
+    });
+
+    const title =
+      input.title ??
+      generateTitle({
+        mutationOperator: mutant.mutationOperator,
+        filePath: mutant.filePath,
+        startLine: mutant.startLine,
+      });
+    if (title === mutant.title) return { mutant, changed: false };
+    const updated = await mutantRepository.updateText({
+      mutantId: mutant.id,
+      projectId: mutant.projectId,
+      editedById: principal.id,
+      fields: { title },
     });
     return { mutant: updated, changed: true };
   },

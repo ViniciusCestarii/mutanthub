@@ -480,18 +480,19 @@ export const mutantRepository = {
     });
   },
 
-  /** Updates only the description, recording the change like any other edit. */
-  updateDescription(params: {
+  /** Updates only the title or description, recording the change like any other edit. */
+  updateText(params: {
     mutantId: number;
     projectId: string;
     editedById: string;
-    description: string | null;
+    fields: { title: string } | { description: string | null };
   }) {
-    const summary = "Edited: description";
+    const field = "title" in params.fields ? "title" : "description";
+    const summary = `Edited: ${field}`;
     return prisma.$transaction(async (tx) => {
       const updated = await tx.mutant.update({
         where: { id: params.mutantId },
-        data: { description: params.description },
+        data: params.fields,
       });
       await tx.mutantStatusHistory.create({
         data: {
@@ -509,7 +510,7 @@ export const mutantRepository = {
           actorId: params.editedById,
           projectId: params.projectId,
           mutantId: params.mutantId,
-          payload: { changedFields: ["description"], reason: null },
+          payload: { changedFields: [field], reason: null },
         },
       });
       await notificationRepository.recordInTx(tx, {

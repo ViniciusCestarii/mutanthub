@@ -63,7 +63,7 @@ export default async function MutantPage({ params }: { params: Promise<{ id: str
 
   return (
     <PageContainer wide className="space-y-4" data-testid="mutant-page">
-      <MutantHeader mutant={mutant} />
+      <MutantHeader mutant={mutant} canEditTitle={view.lifecycle.canEditText} />
       <MutantNotices view={view} />
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -78,7 +78,7 @@ export default async function MutantPage({ params }: { params: Promise<{ id: str
           <DescriptionSection
             mutantId={mutant.id}
             description={mutant.description}
-            canEdit={view.lifecycle.canEditDescription}
+            canEdit={view.lifecycle.canEditText}
           >
             {mutant.description ? <Markdown source={mutant.description} /> : null}
           </DescriptionSection>
