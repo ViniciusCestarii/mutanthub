@@ -304,6 +304,11 @@ export const mutantListFilterSchema = z.object({
   batch: z.string().trim().max(64).optional(),
   /** Result of the last drift check against the default branch. */
   drift: driftStatusSchema.optional(),
+  /**
+   * Mutants whose mutation has a newer result at a later commit: "hide" keeps
+   * only the latest result per mutation, "only" lists the superseded ones.
+   */
+  superseded: z.enum(["hide", "only"]).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
 });

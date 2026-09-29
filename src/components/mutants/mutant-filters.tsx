@@ -113,6 +113,10 @@ export const MUTATION_STATUS_OPTIONS: FilterOption[] = MUTATION_STATUSES.map((s)
   value: s,
   label: MUTATION_STATUS_LABEL[s],
 }));
+export const SUPERSEDED_OPTIONS: FilterOption[] = [
+  { value: "hide", label: "Hide (latest only)" },
+  { value: "only", label: "Only superseded" },
+];
 export const DRIFT_STATUS_OPTIONS: FilterOption[] = DRIFT_STATUSES.map((s) => ({
   value: s,
   label: DRIFT_STATUS_LABEL[s],
@@ -146,6 +150,7 @@ export interface MutantFilterValues {
   /** Import batch id; carried as a hidden field so it survives re-filtering. */
   batch?: string;
   drift?: DriftStatus;
+  superseded?: "hide" | "only";
 }
 
 interface MutantFiltersProps {
@@ -228,6 +233,15 @@ export function MutantFilters({
             testId="filter-drift"
           />
         </FilterField>
+        <FilterField label="Superseded">
+          <FilterSelect
+            name="superseded"
+            value={values.superseded}
+            options={SUPERSEDED_OPTIONS}
+            placeholder="Show"
+            testId="filter-superseded"
+          />
+        </FilterField>
         <FilterField label="Contributor">
           <FilterInput
             name="contributor"
@@ -257,7 +271,7 @@ export function MutantFilters({
         </FilterField>
         <FilterField
           label="Search"
-          className={lockProject ? "col-span-2 md:col-span-1 xl:col-span-3" : ""}
+          className={lockProject ? "col-span-2 md:col-span-1 xl:col-span-2" : ""}
         >
           <FilterInput
             name="q"

@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/server/db/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import type { ProjectRole } from "@/generated/prisma/enums";
+import { refreshSupersededForRevision } from "./superseded";
 
 export const projectSummarySelect = {
   id: true,
@@ -87,7 +88,11 @@ export const projectRepository = {
   },
 
   async upsertRevision(data: UpsertRevisionData) {
-    return prisma.revision.upsert({
+    const before = await prisma.revision.findUnique({
+      where: { projectId_commitSha: { projectId: data.projectId, commitSha: data.commitSha } },
+      select: { commitDate: true },
+    });
+    const revision = await prisma.revision.upsert({
       where: { projectId_commitSha: { projectId: data.projectId, commitSha: data.commitSha } },
       create: {
         projectId: data.projectId,
@@ -104,6 +109,10 @@ export const projectRepository = {
         commitDate: data.commitDate ?? undefined,
       },
     });
+    // The commit date orders results of the same mutation; re-rank if it changed.
+    if (before && before.commitDate?.getTime() !== revision.commitDate?.getTime())
+      await refreshSupersededForRevision(prisma, revision.id);
+    return revision;
   },
 
   findRevision(projectId: string, commitSha: string) {

@@ -87,6 +87,61 @@ test.describe("bulk import", () => {
     await expect(page.getByTestId("import-report")).toContainText("example-mutator 1.0.0");
   });
 
+  test("a survivor killed at a newer commit is hidden by the superseded filter", async ({
+    page,
+  }) => {
+    const title = "Superseded: alloc padding in escape";
+    const run = (commit: string, observedResult: string) => ({
+      name: `run-${commit.slice(0, 7)}.json`,
+      mimeType: "application/json",
+      buffer: Buffer.from(
+        JSON.stringify({
+          tool: { name: "rerun-mutator", version: "1.0.0" },
+          defaults: { commit, testCommand: "make test-ci", observedResult },
+          mutants: [
+            {
+              file: "lib/escape.c",
+              startLine: 87,
+              originalCode: "  alloc = length * 3 + 1;",
+              mutatedCode: "  alloc = length * 2 + 1;",
+              title,
+            },
+          ],
+        }),
+      ),
+    });
+
+    await signInAs(page, "bruno");
+    // Newer commit (August) first: import order must not matter, only commit order.
+    for (const [commit, result] of [
+      ["e8d1c4b7a2f5e8d1c4b7a2f5e8d1c4b7a2f5e8d1", "KILLED"],
+      ["a4c7e1f9b3d5a7c9e1f3b5d7a9c1e3f5b7d9a1c3", "SURVIVED"],
+    ]) {
+      await page.goto("/projects/curl/curl/import");
+      await page.waitForLoadState("networkidle");
+      await page.getByTestId("import-file").setInputFiles(run(commit, result));
+      await page.getByTestId("import-dry-run").click();
+      await expect(page.getByTestId("import-commit")).toHaveText(/Import 1 mutant as approved/);
+      if (result === "SURVIVED")
+        await expect(page.getByTestId("import-related")).toContainText(
+          "KILLED there, SURVIVED here",
+        );
+      await page.getByTestId("import-commit").click();
+      await expect(page.getByTestId("import-done")).toContainText(/1 mutants? imported/);
+    }
+
+    await page.goto("/projects/curl/curl/mutants?mutationStatus=SURVIVED");
+    const row = page.getByRole("row").filter({ hasText: title });
+    await expect(row.getByTestId("superseded")).toBeVisible();
+
+    await page.goto("/projects/curl/curl/mutants?mutationStatus=SURVIVED&superseded=hide");
+    await expect(page.getByTestId("filter-superseded")).toHaveValue("hide");
+    await expect(page.getByText(title)).toHaveCount(0);
+
+    await page.goto("/projects/curl/curl/mutants?mutationStatus=KILLED&superseded=hide");
+    await expect(page.getByText(title)).toBeVisible();
+  });
+
   for (const username of ["frank", "erin"]) {
     test(`${username} (not a maintainer) cannot open the page or call the endpoint`, async ({
       page,

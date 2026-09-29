@@ -104,6 +104,7 @@ export async function parseExportSelection(
     "commit",
     "file",
     "q",
+    "superseded",
   ] as const) {
     const value = filter[key];
     if (value) filters[key] = value;
@@ -120,6 +121,7 @@ export async function parseExportSelection(
       commitShaPrefix: filter.commit,
       filePathContains: filter.file,
       text: filter.q,
+      superseded: filter.superseded,
     },
     limit,
     filters,

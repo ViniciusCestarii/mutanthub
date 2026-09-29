@@ -1,6 +1,6 @@
 /**
  * Recomputes every mutant's fingerprint and similarity key with the current
- * `computeFingerprint` / `computeSimilarityKey`.
+ * `computeFingerprint` / `computeSimilarityKey`, then the `superseded` flag.
  *
  * Run with `npm run db:refingerprint` after a change to either key's material
  * (e.g. when the start line became part of the fingerprint), and once after the
@@ -12,6 +12,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { computeFingerprint, computeSimilarityKey } from "../src/domain/mutants/fingerprint";
+import { refreshAllSuperseded } from "../src/server/repositories/superseded";
 
 const BATCH = 500;
 
@@ -68,6 +69,9 @@ async function main() {
     }
   }
   console.log(`Fingerprints and similarity keys: ${scanned} mutants scanned, ${updated} updated.`);
+  // Keys may have changed above; the superseded flag follows from them.
+  const flagged = await refreshAllSuperseded(prisma);
+  console.log(`Superseded flags: ${flagged} updated.`);
 }
 
 main()

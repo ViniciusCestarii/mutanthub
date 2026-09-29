@@ -5,7 +5,9 @@ The public read-only JSON API for dataset consumers.
 Read-only endpoints for dataset consumers (rate limit: 120 requests / minute / IP):
 
 - `GET /api/mutants` – paginated list. Filters: `project=owner/repo`, `language`, `operator`,
-  `reviewStatus`, `mutationStatus`, `contributor`, `commit`, `file`, `q`, `page`, `pageSize`.
+  `reviewStatus`, `mutationStatus`, `contributor`, `commit`, `file`, `q`, `superseded`, `page`,
+  `pageSize`. `superseded=hide` keeps only the latest result per mutation (drops a mutant when the
+  same mutation has a newer result at a later commit); `superseded=only` lists the dropped ones.
 - `GET /api/mutants/:id` – full record with diff, test evidence, validations and history.
 - `GET /api/docs` – OpenAPI 3.1 description of the above.
 - `GET /api/mutants/:id/patch` – the stored unified diff as a `text/x-patch` download.

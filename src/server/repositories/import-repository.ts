@@ -3,6 +3,7 @@ import { prisma } from "@/server/db/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import type { MutationOperator, MutationStatus, ObservedResult } from "@/generated/prisma/enums";
 import { userSummarySelect } from "./user-repository";
+import { refreshSuperseded } from "./superseded";
 
 export const importBatchSelect = {
   id: true,
@@ -130,6 +131,10 @@ export const importRepository = {
           });
           ids.push(created.id);
         }
+        await refreshSuperseded(
+          tx,
+          params.mutants.map((m) => m.similarityKey),
+        );
         await tx.activity.create({
           data: {
             type: "MUTANTS_IMPORTED",

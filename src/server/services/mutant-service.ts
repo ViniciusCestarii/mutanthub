@@ -532,6 +532,7 @@ export const mutantService = {
         text: filter.q,
         importBatchId: filter.batch,
         driftStatus: filter.drift,
+        superseded: filter.superseded,
       },
       { page: filter.page, pageSize: filter.pageSize },
     );

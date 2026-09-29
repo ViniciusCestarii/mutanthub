@@ -36,6 +36,7 @@ function listItem(overrides: Partial<MutantListItem> = {}): MutantListItem {
     driftStatus: "UNCHECKED",
     driftLine: null,
     driftCommitSha: null,
+    superseded: false,
     createdAt: new Date("2026-09-01T10:00:00Z"),
     updatedAt: new Date("2026-09-03T10:00:00Z"),
     project: {
