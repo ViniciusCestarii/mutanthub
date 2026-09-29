@@ -12,6 +12,7 @@ import type {
 } from "@/generated/prisma/enums";
 import { userSummarySelect } from "./user-repository";
 import { notificationRepository } from "./notification-repository";
+import { refreshSuperseded } from "./superseded";
 
 /** Fields shown in lists (mutant tables, review queue rows, dashboards). */
 export const mutantListSelect = {
@@ -29,6 +30,7 @@ export const mutantListSelect = {
   driftStatus: true,
   driftLine: true,
   driftCommitSha: true,
+  superseded: true,
   createdAt: true,
   updatedAt: true,
   project: {
@@ -135,6 +137,8 @@ export interface MutantListWhere {
   text?: string;
   importBatchId?: string;
   driftStatus?: DriftStatus;
+  /** "hide": latest result per mutation only; "only": just the superseded ones. */
+  superseded?: "hide" | "only";
 }
 
 export interface Page {
@@ -162,6 +166,7 @@ export function buildMutantWhere(w: MutantListWhere): Prisma.MutantWhereInput {
   if (w.createdSince) and.push({ createdAt: { gte: w.createdSince } });
   if (w.importBatchId) and.push({ importBatchId: w.importBatchId });
   if (w.driftStatus) and.push({ driftStatus: w.driftStatus });
+  if (w.superseded) and.push({ superseded: w.superseded === "only" });
   if (w.text) {
     and.push({
       OR: [
@@ -329,6 +334,7 @@ export const mutantRepository = {
           },
         },
       });
+      await refreshSuperseded(tx, [created.similarityKey]);
       await tx.activity.create({
         data: {
           type: "MUTANT_SUBMITTED",
@@ -376,6 +382,8 @@ export const mutantRepository = {
 
     return prisma.$transaction(async (tx) => {
       const updated = await tx.mutant.update({ where: { id: params.mutantId }, data });
+      // Review and mutation status both decide whether this mutant supersedes its siblings.
+      await refreshSuperseded(tx, [updated.similarityKey]);
       await tx.mutantStatusHistory.create({
         data: {
           mutantId: params.mutantId,
@@ -463,6 +471,10 @@ export const mutantRepository = {
       : "Edited (no field changes)";
     const comment = params.editReason ? `${summary}. ${params.editReason}` : summary;
     return prisma.$transaction(async (tx) => {
+      const before = await tx.mutant.findUniqueOrThrow({
+        where: { id: params.mutantId },
+        select: { similarityKey: true },
+      });
       const updated = await tx.mutant.update({
         where: { id: params.mutantId },
         data: {
@@ -470,6 +482,8 @@ export const mutantRepository = {
           submissions: { create: { ...params.submission, submittedById: params.editedById } },
         },
       });
+      // An edit can move the mutant to another similarity group or change its result.
+      await refreshSuperseded(tx, [before.similarityKey, updated.similarityKey]);
       await tx.mutantStatusHistory.create({
         data: {
           mutantId: params.mutantId,

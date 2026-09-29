@@ -103,7 +103,13 @@ shares the persisted `similarityKey = sha256(project, file path, normalized orig
 normalized mutated code)`. This links repeated runs of a tool across commits: a mutant that
 survived at commit X lists the one killed at a later commit Y (with its status) on its page, and
 the import report lists rows that match a mutant at another commit. Statuses are never copied
-between revisions. After changing either key's material, run `npm run db:refingerprint` (the
+between revisions. Instead, `Mutant.superseded` marks a mutant when its mutation has a newer
+conclusive result (SURVIVED, KILLED or EQUIVALENT, not rejected, withdrawn or duplicate) at a later
+commit (commit date, else first-seen date), or an EQUIVALENT result anywhere. The mutant list's
+"Superseded: hide" filter therefore shows the latest result per mutation, so a survivor killed at
+a later commit drops out while one that regressed (killed, then survived) stays. The flag is
+recomputed for the affected similarity keys on every create, import, edit and status change
+(`src/server/repositories/superseded.ts`), and for every row by `db:refingerprint`. After changing either key's material, run `npm run db:refingerprint` (the
 production `migrate` service runs it on every deploy; it only touches stale rows and also
 backfills missing similarity keys). The drawer shows "Possible duplicate" while typing and after submission;
 nothing is blocked automatically. Reviewers can mark a mutant as `DUPLICATE` of another.

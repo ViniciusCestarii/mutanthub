@@ -21,6 +21,7 @@ import type {
 } from "../src/generated/prisma/enums";
 import { MOCK_REPOS, headCommit } from "../src/server/github/fixtures/manifest";
 import { computeFingerprint, computeSimilarityKey } from "../src/domain/mutants/fingerprint";
+import { refreshAllSuperseded } from "../src/server/repositories/superseded";
 import { generateUnifiedDiff } from "../src/domain/mutants/diff";
 import { buildNotifications } from "../src/domain/notifications/build";
 
@@ -1412,6 +1413,8 @@ async function main() {
       });
     }
   }
+
+  await refreshAllSuperseded(prisma);
 
   console.log("Deriving notifications from activity...");
   await seedNotifications();

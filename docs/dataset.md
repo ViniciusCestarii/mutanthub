@@ -14,7 +14,7 @@ with the evidence and the community's reproductions. This page is written for re
 
 Live exports stream straight from the database and accept the same filters as the list API:
 `project=owner/repo`, `language`, `operator`, `reviewStatus`, `mutationStatus`, `contributor`,
-`commit`, `file`, `q`, plus `limit` (default 10,000, maximum 50,000). Example:
+`commit`, `file`, `q`, `superseded`, plus `limit` (default 10,000, maximum 50,000). Example:
 
 ```bash
 curl -sL "https://mutanthub.example.com/api/export/mutants.csv?project=curl/curl&reviewStatus=APPROVED" -o curl-mutants.csv

@@ -133,6 +133,26 @@ export function DriftBadge({
   );
 }
 
+export function SupersededBadge({
+  superseded,
+  className,
+}: {
+  superseded: boolean;
+  className?: string;
+}) {
+  if (!superseded) return null;
+  return (
+    <StatusPill
+      tone="muted"
+      className={className}
+      data-testid="superseded"
+      title="The same mutation has a newer result at a later commit"
+    >
+      superseded
+    </StatusPill>
+  );
+}
+
 export function MutationStatusBadge({
   status,
   className,

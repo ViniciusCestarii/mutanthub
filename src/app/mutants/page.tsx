@@ -50,6 +50,7 @@ export default async function MutantsPage({
     file: filter.file,
     q: filter.q,
     drift: filter.drift,
+    superseded: filter.superseded,
   };
   const languages = [
     ...new Set(projects.map((p) => p.language).filter((l): l is string => Boolean(l))),

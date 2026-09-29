@@ -6,6 +6,7 @@
 //   code) is the duplicate-detection key; a line number only identifies a
 //   location together with its revision. The similarity key drops the
 //   revision and line, linking the same mutation across commits.
+//   `superseded` marks mutants whose mutation has a newer result.
 // - Moderation state (reviewStatus) and experimental outcome (mutationStatus)
 //   are independent. Every transition is appended to MutantStatusHistory.
 // - Commands stored on Submission / Validation are evidence only. They are
@@ -255,6 +256,8 @@ model Mutant {
   fingerprint      String
   /// Same mutation at any revision or line; see computeSimilarityKey. Null until backfilled.
   similarityKey    String?
+  /// A newer commit has a result for the same mutation; see server/repositories/superseded.ts.
+  superseded       Boolean          @default(false)
   reviewStatus     ReviewStatus     @default(PENDING)
   mutationStatus   MutationStatus   @default(UNKNOWN)
   duplicateOfId    Int?
