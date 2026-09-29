@@ -6,7 +6,7 @@ import {
   canSubmitMutant,
   isMutantOwner,
 } from "@/domain/auth/permissions";
-import { computeFingerprint } from "@/domain/mutants/fingerprint";
+import { computeFingerprint, computeSimilarityKey } from "@/domain/mutants/fingerprint";
 import { generateTitle } from "@/domain/mutants/title";
 import { generateUnifiedDiff, looksLikeUnifiedDiff } from "@/domain/mutants/diff";
 import { formatRanges, spanWithinRanges } from "@/domain/pull-requests/diff-ranges";
@@ -113,6 +113,12 @@ export const mutantService = {
       originalCode: input.originalCode,
       mutatedCode: input.mutatedCode,
     });
+    const similarityKey = computeSimilarityKey({
+      projectId: project.id,
+      filePath: input.filePath,
+      originalCode: input.originalCode,
+      mutatedCode: input.mutatedCode,
+    });
 
     // Pull request mode: the mutant must sit on lines the pull request changed, at its head.
     let pullRequestId: string | null = null;
@@ -159,6 +165,7 @@ export const mutantService = {
         }),
       description: input.description ?? null,
       fingerprint,
+      similarityKey,
       mutationStatus: initialMutationStatus(input.observedResult),
       createdById: principal.id,
       submission: {
@@ -203,7 +210,11 @@ export const mutantService = {
     const fingerprint = computeFingerprint(params);
     const [exactAll, similarAll] = await Promise.all([
       mutantRepository.findByFingerprint(fingerprint),
-      mutantRepository.findSimilar({ ...params, excludeFingerprint: fingerprint }),
+      mutantRepository.findSimilar({
+        ...params,
+        similarityKey: computeSimilarityKey(params),
+        excludeFingerprint: fingerprint,
+      }),
     ]);
     const exact = exactAll.filter((m) => m.id !== params.excludeMutantId);
     const similar = similarAll.filter((m) => m.id !== params.excludeMutantId);
@@ -229,6 +240,7 @@ export const mutantService = {
         filePath: params.filePath,
         originalCode: params.originalCode,
         mutatedCode: params.mutatedCode,
+        similarityKey: computeSimilarityKey({ ...params, projectId: project.id }),
       });
       return { exact: [], similar };
     }
@@ -308,6 +320,12 @@ export const mutantService = {
       originalCode: input.originalCode,
       mutatedCode: input.mutatedCode,
     });
+    const similarityKey = computeSimilarityKey({
+      projectId: mutant.projectId,
+      filePath: mutant.filePath,
+      originalCode: input.originalCode,
+      mutatedCode: input.mutatedCode,
+    });
 
     const fields = {
       title:
@@ -323,6 +341,7 @@ export const mutantService = {
       gitDiff,
       description: input.description ?? null,
       fingerprint,
+      similarityKey,
     };
     const latest = mutant.submissions[mutant.submissions.length - 1];
     const submission = {
@@ -340,7 +359,7 @@ export const mutantService = {
     };
     const changedFields = [
       ...(Object.keys(fields) as Array<keyof typeof fields>).filter(
-        (k) => k !== "fingerprint" && fields[k] !== mutant[k],
+        (k) => k !== "fingerprint" && k !== "similarityKey" && fields[k] !== mutant[k],
       ),
       ...(Object.keys(submission) as Array<keyof typeof submission>).filter(
         (k) => !latest || submission[k] !== latest[k],

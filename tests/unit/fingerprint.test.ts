@@ -72,4 +72,22 @@ describe("computeSimilarityKey", () => {
     expect(computeSimilarityKey(rest)).toBe(computeSimilarityKey({ ...rest }));
     expect(computeSimilarityKey(rest)).not.toBe(computeFingerprint(base));
   });
+
+  it("links the same mutation across commits and lines, and nothing else", () => {
+    const atX = { ...base, revisionId: "rev-x", startLine: 10 };
+    const atY = {
+      ...base,
+      revisionId: "rev-y",
+      startLine: 14,
+      originalCode: `  ${base.originalCode}  `,
+    };
+    expect(computeFingerprint(atX)).not.toBe(computeFingerprint(atY));
+    expect(computeSimilarityKey(atX)).toBe(computeSimilarityKey(atY));
+    expect(computeSimilarityKey(atX)).not.toBe(
+      computeSimilarityKey({ ...atX, filePath: "other.c" }),
+    );
+    expect(computeSimilarityKey(atX)).not.toBe(
+      computeSimilarityKey({ ...atX, mutatedCode: `${base.mutatedCode} + 1` }),
+    );
+  });
 });

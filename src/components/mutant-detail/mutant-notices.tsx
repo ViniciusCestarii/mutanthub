@@ -4,6 +4,7 @@ import type { MutantDetailView } from "@/server/services/mutant-service";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { routes } from "@/lib/routes";
 import { relativeTime, shortSha } from "@/lib/format";
+import { MUTATION_STATUS_LABEL } from "@/domain/mutants/status";
 
 /** Commit drift, duplicate-of and possible-duplicate notices. */
 export function MutantNotices({ view }: { view: MutantDetailView }) {
@@ -160,7 +161,8 @@ export function MutantNotices({ view }: { view: MutantDetailView }) {
                   {m.title}{" "}
                   <span className="text-muted-foreground">
                     — same change at commit{" "}
-                    <span className="font-mono">{shortSha(m.revision.commitSha)}</span>
+                    <span className="font-mono">{shortSha(m.revision.commitSha)}</span>,{" "}
+                    {MUTATION_STATUS_LABEL[m.mutationStatus].toLowerCase()} there
                   </span>
                 </li>
               ))}

@@ -189,6 +189,7 @@ export interface CreateMutantData {
   title: string;
   description: string | null;
   fingerprint: string;
+  similarityKey: string;
   mutationStatus: MutationStatus;
   createdById: string;
   pullRequestId: string | null;
@@ -255,15 +256,31 @@ export const mutantRepository = {
     });
   },
 
+  /** Exactly the same mutation (equal similarity key) under any other fingerprint. */
+  findSameMutation(similarityKey: string, excludeFingerprint: string) {
+    return prisma.mutant.findMany({
+      where: { similarityKey, fingerprint: { not: excludeFingerprint } },
+      select: {
+        id: true,
+        mutationStatus: true,
+        startLine: true,
+        revision: { select: { commitSha: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+  },
+
   /**
-   * Same project + file + normalized code pair at any revision. Uses the code
-   * columns directly because the similarity key is not persisted.
+   * The same mutation at other revisions or lines: an equal similarity key
+   * (normalized code pair), plus a looser substring match on the code columns
+   * so partial snippets typed in the drawer still surface candidates.
    */
   findSimilar(params: {
     projectId: string;
     filePath: string;
     originalCode: string;
     mutatedCode: string;
+    similarityKey: string;
     excludeFingerprint?: string;
   }) {
     return prisma.mutant.findMany({
@@ -272,6 +289,7 @@ export const mutantRepository = {
         filePath: params.filePath,
         fingerprint: params.excludeFingerprint ? { not: params.excludeFingerprint } : undefined,
         OR: [
+          { similarityKey: params.similarityKey },
           {
             originalCode: { contains: params.originalCode.trim(), mode: "insensitive" },
             mutatedCode: { contains: params.mutatedCode.trim(), mode: "insensitive" },
@@ -434,6 +452,7 @@ export const mutantRepository = {
       | "gitDiff"
       | "description"
       | "fingerprint"
+      | "similarityKey"
     >;
     submission: CreateMutantData["submission"];
     changedFields: string[];

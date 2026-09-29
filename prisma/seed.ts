@@ -20,7 +20,7 @@ import type {
   ValidationResult,
 } from "../src/generated/prisma/enums";
 import { MOCK_REPOS, headCommit } from "../src/server/github/fixtures/manifest";
-import { computeFingerprint } from "../src/domain/mutants/fingerprint";
+import { computeFingerprint, computeSimilarityKey } from "../src/domain/mutants/fingerprint";
 import { generateUnifiedDiff } from "../src/domain/mutants/diff";
 import { buildNotifications } from "../src/domain/notifications/build";
 
@@ -1133,6 +1133,12 @@ async function main() {
       originalCode: original,
       mutatedCode: mutated,
     });
+    const similarityKey = computeSimilarityKey({
+      projectId: project.id,
+      filePath: m.file,
+      originalCode: original,
+      mutatedCode: mutated,
+    });
     const gitDiff = generateUnifiedDiff({
       filePath: m.file,
       startLine: m.line,
@@ -1178,6 +1184,7 @@ async function main() {
         title: m.title,
         description: m.description ?? null,
         fingerprint,
+        similarityKey,
         reviewStatus: m.review,
         mutationStatus: m.mutation,
         duplicateOfId: m.duplicateOfIndex !== undefined ? mutantIds[m.duplicateOfIndex] : null,

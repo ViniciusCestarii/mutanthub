@@ -1,15 +1,17 @@
 /**
- * Recomputes every mutant's fingerprint with the current `computeFingerprint`.
+ * Recomputes every mutant's fingerprint and similarity key with the current
+ * `computeFingerprint` / `computeSimilarityKey`.
  *
- * Run with `npm run db:refingerprint` after a change to the fingerprint
- * material (e.g. when the start line became part of it). Idempotent: rows whose
- * stored fingerprint is already current are left untouched, so it is safe to
- * run on every deploy.
+ * Run with `npm run db:refingerprint` after a change to either key's material
+ * (e.g. when the start line became part of the fingerprint), and once after the
+ * similarity key column was added to backfill it. Idempotent: rows whose stored
+ * keys are already current are left untouched, so it is safe to run on every
+ * deploy.
  */
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { computeFingerprint } from "../src/domain/mutants/fingerprint";
+import { computeFingerprint, computeSimilarityKey } from "../src/domain/mutants/fingerprint";
 
 const BATCH = 500;
 
@@ -32,6 +34,7 @@ async function main() {
         originalCode: true,
         mutatedCode: true,
         fingerprint: true,
+        similarityKey: true,
       },
       orderBy: { id: "asc" },
       take: BATCH,
@@ -42,18 +45,29 @@ async function main() {
     cursor = mutants[mutants.length - 1].id;
 
     const stale = mutants
-      .map((m) => ({ id: m.id, current: m.fingerprint, fingerprint: computeFingerprint(m) }))
-      .filter((m) => m.current !== m.fingerprint);
+      .map((m) => ({
+        id: m.id,
+        current: m,
+        fingerprint: computeFingerprint(m),
+        similarityKey: computeSimilarityKey(m),
+      }))
+      .filter(
+        (m) =>
+          m.current.fingerprint !== m.fingerprint || m.current.similarityKey !== m.similarityKey,
+      );
     if (stale.length > 0) {
       await prisma.$transaction(
         stale.map((m) =>
-          prisma.mutant.update({ where: { id: m.id }, data: { fingerprint: m.fingerprint } }),
+          prisma.mutant.update({
+            where: { id: m.id },
+            data: { fingerprint: m.fingerprint, similarityKey: m.similarityKey },
+          }),
         ),
       );
       updated += stale.length;
     }
   }
-  console.log(`Fingerprints: ${scanned} mutants scanned, ${updated} updated.`);
+  console.log(`Fingerprints and similarity keys: ${scanned} mutants scanned, ${updated} updated.`);
 }
 
 main()

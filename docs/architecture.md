@@ -98,9 +98,14 @@ and **service → GitHubClient (live or mock) → cache**.
 normalized mutated code)`; normalization removes indentation, trailing whitespace, CRLF and blank
 lines. Submissions with the same fingerprint are **exact** duplicates. The start line is part of
 the identity because files repeat statements (the same mutation of `drop();` in two functions is
-two mutants). The same code pair at a different revision or line is reported as **similar**.
-After changing the fingerprint material, run `npm run db:refingerprint` (the production `migrate`
-service runs it on every deploy; it only touches stale rows). The drawer shows "Possible duplicate" while typing and after submission;
+two mutants). The same code pair at a different revision or line is reported as **similar**: it
+shares the persisted `similarityKey = sha256(project, file path, normalized original code,
+normalized mutated code)`. This links repeated runs of a tool across commits: a mutant that
+survived at commit X lists the one killed at a later commit Y (with its status) on its page, and
+the import report lists rows that match a mutant at another commit. Statuses are never copied
+between revisions. After changing either key's material, run `npm run db:refingerprint` (the
+production `migrate` service runs it on every deploy; it only touches stale rows and also
+backfills missing similarity keys). The drawer shows "Possible duplicate" while typing and after submission;
 nothing is blocked automatically. Reviewers can mark a mutant as `DUPLICATE` of another.
 
 ## Commit drift

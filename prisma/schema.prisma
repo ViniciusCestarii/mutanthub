@@ -4,7 +4,8 @@
 // - A Mutant always points to a Revision (an exact commit). The fingerprint
 //   (project + revision + file + start line + normalized original/mutated
 //   code) is the duplicate-detection key; a line number only identifies a
-//   location together with its revision.
+//   location together with its revision. The similarity key drops the
+//   revision and line, linking the same mutation across commits.
 // - Moderation state (reviewStatus) and experimental outcome (mutationStatus)
 //   are independent. Every transition is appended to MutantStatusHistory.
 // - Commands stored on Submission / Validation are evidence only. They are
@@ -252,6 +253,8 @@ model Mutant {
   title            String
   description      String?
   fingerprint      String
+  /// Same mutation at any revision or line; see computeSimilarityKey. Null until backfilled.
+  similarityKey    String?
   reviewStatus     ReviewStatus     @default(PENDING)
   mutationStatus   MutationStatus   @default(UNKNOWN)
   duplicateOfId    Int?
@@ -289,6 +292,7 @@ model Mutant {
   @@index([projectId, filePath])
   @@index([revisionId, filePath, startLine])
   @@index([fingerprint])
+  @@index([similarityKey])
   @@index([reviewStatus])
   @@index([mutationStatus])
   @@index([createdById])

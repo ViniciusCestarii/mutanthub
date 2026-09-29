@@ -112,7 +112,7 @@ export interface ImportRow {
 export interface RowIssue {
   index: number;
   message: string;
-  /** For duplicates: the id of the mutant that already exists. */
+  /** For duplicates and related rows: the id of the mutant that already exists. */
   existingId?: number;
 }
 

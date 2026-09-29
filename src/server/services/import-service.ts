@@ -4,7 +4,7 @@ import { canManageProject } from "@/domain/auth/permissions";
 import { locateOriginalCode } from "@/domain/kill-claims/applies";
 import { parseImportFile, ImportParseError } from "@/domain/import/parse";
 import { prepareRow, type ImportRow, type RowIssue } from "@/domain/import/schema";
-import { computeFingerprint } from "@/domain/mutants/fingerprint";
+import { computeFingerprint, computeSimilarityKey } from "@/domain/mutants/fingerprint";
 import { generateUnifiedDiff, looksLikeUnifiedDiff } from "@/domain/mutants/diff";
 import { AppError, forbidden, validationError } from "@/lib/errors";
 import { enforceRateLimit } from "@/server/infra/rate-limit";
@@ -26,6 +26,11 @@ export interface ImportReport {
   valid: number;
   errors: RowIssue[];
   duplicates: RowIssue[];
+  /**
+   * Imported rows whose mutation already exists at another commit or line
+   * (e.g. an earlier run). Informational: the row is still imported.
+   */
+  related: RowIssue[];
   /** Distinct commits referenced by valid rows. */
   commits: string[];
 }
@@ -35,6 +40,7 @@ interface Prepared {
   report: ImportReport;
   revisions: Map<string, Revision>;
   fingerprints: Map<number, string>;
+  similarityKeys: Map<number, string>;
 }
 
 /**
@@ -91,6 +97,7 @@ export const importService = {
       title: r.title,
       description: r.description,
       fingerprint: prepared.fingerprints.get(r.index)!,
+      similarityKey: prepared.similarityKeys.get(r.index)!,
       mutationStatus: r.observedResult,
       externalId: r.externalId,
       submission: {
@@ -114,7 +121,11 @@ export const importService = {
       skippedCount: prepared.report.duplicates.length,
       errorCount: prepared.report.errors.length,
       report: JSON.parse(
-        JSON.stringify({ errors: prepared.report.errors, duplicates: prepared.report.duplicates }),
+        JSON.stringify({
+          errors: prepared.report.errors,
+          duplicates: prepared.report.duplicates,
+          related: prepared.report.related,
+        }),
       ) as Prisma.InputJsonValue,
       mutants,
     });
@@ -202,6 +213,8 @@ async function prepare(
   // Location check: the original code must be at the stated line of that commit.
   const fileCache = new Map<string, string | null>();
   const fingerprints = new Map<number, string>();
+  const similarityKeys = new Map<number, string>();
+  const related: RowIssue[] = [];
   const seen = new Map<string, number>();
   const accepted: ImportRow[] = [];
   for (const row of rows) {
@@ -273,8 +286,25 @@ async function prepare(
       });
       continue;
     }
+    const similarityKey = computeSimilarityKey({
+      projectId: project.id,
+      filePath: row.file,
+      originalCode: row.originalCode,
+      mutatedCode: row.mutatedCode,
+    });
+    const earlierRuns = await mutantRepository.findSameMutation(similarityKey, fingerprint);
+    if (earlierRuns.length > 0) {
+      const latest = earlierRuns[earlierRuns.length - 1];
+      const more = earlierRuns.length > 1 ? ` (and ${earlierRuns.length - 1} more)` : "";
+      related.push({
+        index: row.index,
+        message: `same mutation as #${latest.id}${more} at ${latest.revision.commitSha.slice(0, 7)}:${latest.startLine}: ${latest.mutationStatus} there, ${row.observedResult} here`,
+        existingId: latest.id,
+      });
+    }
     seen.set(fingerprint, row.index);
     fingerprints.set(row.index, fingerprint);
+    similarityKeys.set(row.index, similarityKey);
     accepted.push(row);
   }
 
@@ -287,9 +317,10 @@ async function prepare(
     valid: accepted.length,
     errors,
     duplicates,
+    related,
     commits: [...revisions.keys()],
   };
-  return { rows: accepted, report, revisions, fingerprints };
+  return { rows: accepted, report, revisions, fingerprints, similarityKeys };
 }
 
 /** One notification per reviewer for the whole batch. */

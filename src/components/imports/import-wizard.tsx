@@ -25,6 +25,7 @@ interface Report {
   valid: number;
   errors: RowIssue[];
   duplicates: RowIssue[];
+  related: RowIssue[];
   commits: string[];
 }
 
@@ -223,6 +224,13 @@ export function ImportWizard({ owner, repo }: { owner: string; repo: string }) {
               title="Duplicates (skipped)"
               issues={report.duplicates}
               testId="import-duplicates"
+            />
+          ) : null}
+          {report.related.length > 0 ? (
+            <IssueList
+              title="Same mutation at another commit (imported, linked on the mutant page)"
+              issues={report.related}
+              testId="import-related"
             />
           ) : null}
         </div>
