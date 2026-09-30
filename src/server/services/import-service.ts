@@ -4,7 +4,7 @@ import { canManageProject } from "@/domain/auth/permissions";
 import { locateOriginalCode } from "@/domain/kill-claims/applies";
 import { parseImportFile, ImportParseError } from "@/domain/import/parse";
 import { prepareRow, type ImportRow, type RowIssue } from "@/domain/import/schema";
-import { computeFingerprint, computeSimilarityKey } from "@/domain/mutants/fingerprint";
+import { computeFingerprint } from "@/domain/mutants/fingerprint";
 import { generateUnifiedDiff, looksLikeUnifiedDiff } from "@/domain/mutants/diff";
 import { AppError, forbidden, validationError } from "@/lib/errors";
 import { enforceRateLimit } from "@/server/infra/rate-limit";
@@ -17,6 +17,7 @@ import { notificationRepository } from "@/server/repositories/notification-repos
 import type { Prisma, Project, Revision } from "@/generated/prisma/client";
 import { projectService } from "./project-service";
 import { pullRequestService } from "./pull-request-service";
+import { similarityKeyFromContent, type SimilarityKeyResult } from "./similarity";
 import { prisma } from "@/server/db/prisma";
 
 export interface ImportReport {
@@ -41,7 +42,7 @@ interface Prepared {
   report: ImportReport;
   revisions: Map<string, Revision>;
   fingerprints: Map<number, string>;
-  similarityKeys: Map<number, string>;
+  similarityKeys: Map<number, SimilarityKeyResult>;
 }
 
 /**
@@ -98,7 +99,7 @@ export const importService = {
       title: r.title,
       description: r.description,
       fingerprint: prepared.fingerprints.get(r.index)!,
-      similarityKey: prepared.similarityKeys.get(r.index)!,
+      ...prepared.similarityKeys.get(r.index)!,
       mutationStatus: r.observedResult,
       externalId: r.externalId,
       submission: {
@@ -224,7 +225,7 @@ async function prepare(
   // Location check: the original code must be at the stated line of that commit.
   const fileCache = new Map<string, string | null>();
   const fingerprints = new Map<number, string>();
-  const similarityKeys = new Map<number, string>();
+  const similarityKeys = new Map<number, SimilarityKeyResult>();
   const related: RowIssue[] = [];
   const seen = new Map<string, number>();
   const accepted: ImportRow[] = [];
@@ -297,13 +298,14 @@ async function prepare(
       });
       continue;
     }
-    const similarityKey = computeSimilarityKey({
-      projectId: project.id,
-      filePath: row.file,
-      originalCode: row.originalCode,
-      mutatedCode: row.mutatedCode,
-    });
-    const earlierRuns = await mutantRepository.findSameMutation(similarityKey, fingerprint);
+    const similarity = similarityKeyFromContent(
+      project.id,
+      { ...row, filePath: row.file },
+      content,
+    );
+    const earlierRuns = similarity.similarityKey
+      ? await mutantRepository.findSameMutation(similarity.similarityKey, revision.id)
+      : [];
     if (earlierRuns.length > 0) {
       const latest = earlierRuns[earlierRuns.length - 1];
       const more = earlierRuns.length > 1 ? ` (and ${earlierRuns.length - 1} more)` : "";
@@ -315,7 +317,7 @@ async function prepare(
     }
     seen.set(fingerprint, row.index);
     fingerprints.set(row.index, fingerprint);
-    similarityKeys.set(row.index, similarityKey);
+    similarityKeys.set(row.index, similarity);
     accepted.push(row);
   }
 

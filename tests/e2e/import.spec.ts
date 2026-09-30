@@ -142,6 +142,73 @@ test.describe("bulk import", () => {
     await expect(page.getByText(title)).toBeVisible();
   });
 
+  test("a repeated statement is only linked to the same place at another commit", async ({
+    page,
+  }) => {
+    // lib/http.c returns CURLE_WEIRD_SERVER_REPLY from several checks; deleting each
+    // is a different mutant, even though the code pair is identical.
+    const deletion = (startLine: number, title: string, observedResult = "SURVIVED") => ({
+      file: "lib/http.c",
+      startLine,
+      originalCode: "    return CURLE_WEIRD_SERVER_REPLY;",
+      mutatedCode: "",
+      mutationOperator: "STATEMENT_DELETION",
+      title,
+      observedResult,
+    });
+    const upload = async (commit: string, mutants: object[]) => {
+      await page.goto("/projects/curl/curl/import");
+      await page.waitForLoadState("networkidle");
+      await page.getByTestId("import-file").setInputFiles({
+        name: `repeat-${commit.slice(0, 7)}.json`,
+        mimeType: "application/json",
+        buffer: Buffer.from(
+          JSON.stringify({ defaults: { commit, testCommand: "make test-ci" }, mutants }),
+        ),
+      });
+      await page.getByTestId("import-dry-run").click();
+      await expect(page.getByTestId("import-commit")).toBeEnabled();
+    };
+    const open = async (title: string) => {
+      await page.goto(`/projects/curl/curl/mutants?q=${encodeURIComponent(title)}`);
+      await page.getByText(title, { exact: true }).click();
+      await page.waitForURL(/\/mutants\/\d+$/);
+    };
+
+    await signInAs(page, "bruno");
+    await upload("e8d1c4b7a2f5e8d1c4b7a2f5e8d1c4b7a2f5e8d1", [
+      deletion(39, "Repeat: length check"),
+      deletion(42, "Repeat: HTTP/ prefix"),
+      deletion(45, "Repeat: sscanf"),
+    ]);
+    await expect(page.getByTestId("import-related")).toHaveCount(0);
+    await page.getByTestId("import-commit").click();
+    await expect(page.getByTestId("import-done")).toBeVisible();
+
+    for (const title of ["Repeat: length check", "Repeat: HTTP/ prefix", "Repeat: sscanf"]) {
+      await open(title);
+      await expect(page.getByTestId("mutant-header")).toContainText(title);
+      await expect(page.getByTestId("possible-duplicate-notice")).toHaveCount(0);
+    }
+
+    // An earlier run of the same check links to that one mutant only.
+    await upload("a4c7e1f9b3d5a7c9e1f3b5d7a9c1e3f5b7d9a1c3", [
+      deletion(42, "Repeat: HTTP/ prefix (older)", "KILLED"),
+    ]);
+    const related = page.getByTestId("import-related");
+    await expect(related).toContainText("e8d1c4b:42: SURVIVED there, KILLED here");
+    await expect(related.locator("li")).toHaveCount(1);
+    await page.getByTestId("import-commit").click();
+    await expect(page.getByTestId("import-done")).toBeVisible();
+
+    await open("Repeat: HTTP/ prefix");
+    const notice = page.getByTestId("possible-duplicate-notice");
+    await expect(notice.locator("li")).toHaveCount(1);
+    await expect(notice).toContainText("Repeat: HTTP/ prefix (older)");
+    await open("Repeat: sscanf");
+    await expect(page.getByTestId("possible-duplicate-notice")).toHaveCount(0);
+  });
+
   for (const username of ["frank", "erin"]) {
     test(`${username} (not a maintainer) cannot open the page or call the endpoint`, async ({
       page,

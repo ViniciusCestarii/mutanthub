@@ -98,9 +98,17 @@ and **service → GitHubClient (live or mock) → cache**.
 normalized mutated code)`; normalization removes indentation, trailing whitespace, CRLF and blank
 lines. Submissions with the same fingerprint are **exact** duplicates. The start line is part of
 the identity because files repeat statements (the same mutation of `drop();` in two functions is
-two mutants). The same code pair at a different revision or line is reported as **similar**: it
-shares the persisted `similarityKey = sha256(project, file path, normalized original code,
-normalized mutated code)`. This links repeated runs of a tool across commits: a mutant that
+two mutants). The same mutation at another commit is reported as **similar**: it shares the
+persisted `similarityKey = sha256(project, file path, normalized original code, normalized mutated
+code, the two nearest non-blank lines above and below)`. The line number is left out so the key
+survives code moving between commits, and the surrounding lines keep a repeated statement apart
+(deleting `return 0;` in two functions gives two keys). Mutants at the same commit are never
+similar: there the line already tells them apart. The context is read from the file at the
+mutant's commit (the import and the submission already fetch it); when the file cannot be read
+the key is null and the mutant is linked to nothing. `similarityKeyVersion` records the scheme:
+older version 1 keys (code pair only) are recomputed by `npm run db:similarity`, which the
+production `migrate` service runs after `db:refingerprint`, and by `POST /api/jobs/similarity`
+(both only touch older rows). This links repeated runs of a tool across commits: a mutant that
 survived at commit X lists the one killed at a later commit Y (with its status) on its page, and
 the import report lists rows that match a mutant at another commit. Statuses are never copied
 between revisions. Instead, `Mutant.superseded` marks a mutant when its mutation has a newer
@@ -109,9 +117,12 @@ commit (commit date, else first-seen date), or an EQUIVALENT result anywhere. Th
 "Superseded: hide" filter therefore shows the latest result per mutation, so a survivor killed at
 a later commit drops out while one that regressed (killed, then survived) stays. The flag is
 recomputed for the affected similarity keys on every create, import, edit and status change
-(`src/server/repositories/superseded.ts`), and for every row by `db:refingerprint`. After changing either key's material, run `npm run db:refingerprint` (the
-production `migrate` service runs it on every deploy; it only touches stale rows and also
-backfills missing similarity keys). The drawer shows "Possible duplicate" while typing and after submission;
+(`src/server/repositories/superseded.ts`), and for every row by `db:refingerprint`. After changing
+the fingerprint material, run `npm run db:refingerprint` (the production `migrate` service runs it
+on every deploy; it only touches stale rows). After changing the similarity key material, bump
+`SIMILARITY_KEY_VERSION` so the backfill picks every row up. The drawer shows "Possible
+duplicate" while typing (adding a substring match on the code, where an empty snippet only matches
+another deletion) and after submission;
 nothing is blocked automatically. Reviewers can mark a mutant as `DUPLICATE` of another.
 
 ## Commit drift

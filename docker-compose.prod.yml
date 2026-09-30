@@ -63,14 +63,16 @@ services:
       timeout: 3s
       retries: 12
 
-  # Applies pending migrations and refreshes stale mutant fingerprints, then
-  # exits. The app waits for it to succeed.
+  # Applies pending migrations, refreshes stale mutant fingerprints and
+  # recomputes older similarity keys (reads files from GitHub), then exits.
+  # The app waits for it to succeed.
   migrate:
     build:
       context: .
       target: builder
     image: mutanthub-tools
-    command: ["sh", "-c", "npx prisma migrate deploy && npm run db:refingerprint"]
+    command:
+      ["sh", "-c", "npx prisma migrate deploy && npm run db:refingerprint && npm run db:similarity"]
     environment: *app-env
     depends_on:
       postgres:
@@ -139,6 +141,7 @@ services:
         fi;
         while true; do
           curl -fsS -X POST -H "Authorization: Bearer $$CRON_SECRET" http://app:3000/api/jobs/drift || echo "drift job failed";
+          curl -fsS -X POST -H "Authorization: Bearer $$CRON_SECRET" http://app:3000/api/jobs/similarity || echo "similarity job failed";
           sleep "$${JOBS_INTERVAL_SECONDS:-86400}";
         done
     environment:
