@@ -37,7 +37,9 @@ test("a line can be deleted without replacement", async ({ page }) => {
   await expect(page.locator('[data-testid="deletion-note"]:visible')).toContainText(
     "deletes the original lines",
   );
-  await expect(page.getByTestId("mutant-header")).toContainText("Statement deletion");
+  await expect(page.locator('[data-testid="mutant-header"]:visible')).toContainText(
+    "Statement deletion",
+  );
   await page.getByRole("tab", { name: "Unified" }).click();
   await expect(page.locator('[data-testid="monaco-diff"]:visible')).toBeVisible();
   const patch = await page.request.get(`/api/mutants/${id}/patch`);

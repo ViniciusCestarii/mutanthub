@@ -1,5 +1,6 @@
 import "server-only";
 import type { Principal } from "@/domain/auth/permissions";
+import type { PullRequestState } from "@/generated/prisma/enums";
 import {
   canEditMutantText,
   canReviewProject,
@@ -49,8 +50,20 @@ export interface DuplicateCheck {
 export interface MutantDetailView {
   mutant: MutantDetail;
   validationSummary: ReturnType<typeof summarizeValidations>;
-  /** True when the project's default branch has moved past the mutant's revision. */
+  /**
+   * True when the project's default branch has moved past the mutant's revision.
+   * Always false for pull request mutants, whose notice compares with the PR head instead.
+   */
   isOlderRevision: boolean;
+  /** The tracked pull request the mutant was recorded on, if any. */
+  pullRequest: {
+    number: number;
+    title: string;
+    state: PullRequestState;
+    headSha: string;
+    /** True when the mutant's commit is the PR's current head. */
+    atHead: boolean;
+  } | null;
   headSha: string | null;
   canReview: boolean;
   duplicateCheck: DuplicateCheck;
@@ -262,8 +275,9 @@ export const mutantService = {
   async getDetail(principal: Principal | null, id: number): Promise<MutantDetailView> {
     const mutant = await mutantRepository.findDetail(id);
     if (!mutant) throw notFound("Mutant");
+    const pr = mutant.pullRequest ?? mutant.revision.pullRequest;
     const [head, duplicateCheck] = await Promise.all([
-      projectService.getHeadCommit(mutant.project),
+      pr ? null : projectService.getHeadCommit(mutant.project),
       this.findDuplicates({
         projectId: mutant.projectId,
         revisionId: mutant.revisionId,
@@ -279,6 +293,9 @@ export const mutantService = {
       mutant,
       validationSummary: summarizeValidations(mutant.validations.map((v) => v.result)),
       isOlderRevision: head ? head.sha !== mutant.revision.commitSha : false,
+      pullRequest: pr
+        ? { ...pr, atHead: pr.headSha.toLowerCase() === mutant.revision.commitSha.toLowerCase() }
+        : null,
       headSha: head?.sha ?? null,
       canReview: canReviewProject(principal, mutant.projectId),
       duplicateCheck,

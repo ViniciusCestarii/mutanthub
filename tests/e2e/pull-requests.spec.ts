@@ -120,6 +120,20 @@ test.describe("pull requests", () => {
     await expect(row).toBeVisible();
   });
 
+  test("the mutant page names its pull request instead of an older revision", async ({ page }) => {
+    await page.goto(`/projects/${OWNER}/${REPO}/pulls/${PR}`);
+    await page.getByTestId("mutant-table").first().getByText(title).click();
+    await page.waitForURL(/\/mutants\/\d+$/);
+    // The mutant page can briefly hold a second (hidden) copy while it streams in.
+    const notice = page.locator('[data-testid="pull-request-notice"]:visible');
+    await expect(notice).toContainText(`#${PR} url: validate port numbers before use`);
+    await expect(notice).toHaveAttribute("data-at-head", "true");
+    await expect(notice.getByTestId("pull-request-state")).toHaveAttribute("data-state", "OPEN");
+    await expect(page.getByTestId("older-revision-notice")).toHaveCount(0);
+    await notice.getByRole("link", { name: `#${PR}`, exact: false }).click();
+    await page.waitForURL(new RegExp(`/pulls/${PR}$`));
+  });
+
   test("the pull request page filters its mutants and hides superseded results", async ({
     page,
   }) => {

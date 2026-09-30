@@ -115,7 +115,8 @@ test.describe("mutant workflow", () => {
       "data-status",
       "APPROVED",
     );
-    await expect(page.getByTestId("status-history")).toContainText("APPROVED");
+    // The mutant page can briefly hold a second (hidden) copy while it streams in.
+    await expect(page.locator('[data-testid="status-history"]:visible')).toContainText("APPROVED");
   });
 
   test("another user records a reproduction", async ({ page }) => {
