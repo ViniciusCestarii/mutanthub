@@ -12,6 +12,7 @@ import {
   type LineRange,
 } from "@/domain/pull-requests/diff-ranges";
 import { buildCheckSummary, type CheckMutant } from "@/domain/pull-requests/check-summary";
+import { filterPullRequestMutants } from "@/domain/pull-requests/mutant-filter";
 
 const patch = [
   "@@ -10,4 +10,6 @@ int f(int a)",
@@ -136,6 +137,7 @@ describe("buildCheckSummary", () => {
     mutationStatus: "SURVIVED",
     validations: 2,
     commitSha: "head",
+    superseded: false,
   };
 
   it("reports an empty state with a success conclusion", () => {
@@ -167,6 +169,7 @@ describe("buildCheckSummary", () => {
       pendingReview: 1,
       offDiff: 1,
       olderHead: 1,
+      superseded: 0,
     });
     expect(s.title).toBe("1 surviving, 1 killed, 1 equivalent on changed lines");
     expect(s.text).toContain("[#1](https://mh.test/mutants/1) Port \\| boundary");
@@ -192,6 +195,7 @@ describe("check summary details", () => {
     mutationStatus: "SURVIVED",
     validations: 0,
     commitSha: "head",
+    superseded: false,
     ...over,
   });
 
@@ -218,6 +222,36 @@ describe("check summary details", () => {
     expect(s.text).toContain("1 of the listed mutants refer to an earlier head");
     const none = buildCheckSummary(pr, [mutant(2)], changed, "h");
     expect(none.text).not.toContain("earlier head");
+  });
+
+  it("leaves superseded results out of the counts and the table", () => {
+    // Survived at an earlier push, killed at the head: only the latest result counts.
+    const s = buildCheckSummary(
+      pr,
+      [
+        mutant(1, { commitSha: "old", superseded: true }),
+        mutant(2, { mutationStatus: "KILLED" }),
+        mutant(3, { superseded: true, reviewStatus: "REJECTED" }),
+      ],
+      changed,
+      "h",
+    );
+    expect(s.counts).toMatchObject({ onDiff: 1, surviving: 0, killed: 1, superseded: 1 });
+    expect(s.title).toBe("0 surviving, 1 killed, 0 equivalent on changed lines");
+    expect(s.text).not.toContain("[#1]");
+    expect(s.text).toContain(
+      "1 earlier result replaced by a newer run of the same mutation is not counted.",
+    );
+    const two = buildCheckSummary(
+      pr,
+      [mutant(1, { superseded: true }), mutant(2, { superseded: true }), mutant(3)],
+      changed,
+      "h",
+    );
+    expect(two.text).toContain(
+      "2 earlier results replaced by a newer run of the same mutation are not counted.",
+    );
+    expect(buildCheckSummary(pr, [mutant(1)], changed, "h").text).not.toContain("replaced by");
   });
 
   it("reports mutants outside the diff with correct pluralisation", () => {
@@ -296,5 +330,46 @@ describe("diff range boundaries", () => {
     ).toEqual({ ok: [[1, 3]] }); // adjacent ranges merge; keys with no valid range are dropped
     expect(parseChangedRanges([])).toEqual({});
     expect(parseChangedRanges("x")).toEqual({});
+  });
+});
+
+describe("filterPullRequestMutants", () => {
+  const m = (
+    id: number,
+    over: Partial<{
+      filePath: string;
+      reviewStatus: "APPROVED" | "PENDING";
+      mutationStatus: "SURVIVED" | "KILLED";
+      superseded: boolean;
+    }> = {},
+  ) => ({
+    id,
+    filePath: "lib/a.c",
+    reviewStatus: "APPROVED" as const,
+    mutationStatus: "SURVIVED" as const,
+    superseded: false,
+    ...over,
+  });
+  const all = [
+    m(1),
+    m(2, { mutationStatus: "KILLED" }),
+    m(3, { superseded: true }),
+    m(4, { filePath: "lib/b.c", reviewStatus: "PENDING" }),
+  ];
+  const ids = (f: Parameters<typeof filterPullRequestMutants>[1]) =>
+    filterPullRequestMutants(all, f).map((x) => x.id);
+
+  it("hides superseded results unless asked for", () => {
+    expect(ids({})).toEqual([1, 2, 4]);
+    expect(ids({ superseded: "show" })).toEqual([1, 2, 3, 4]);
+    expect(ids({ superseded: "only" })).toEqual([3]);
+  });
+
+  it("combines outcome, review and file", () => {
+    expect(ids({ mutationStatus: "SURVIVED" })).toEqual([1, 4]);
+    expect(ids({ mutationStatus: "SURVIVED", superseded: "show" })).toEqual([1, 3, 4]);
+    expect(ids({ reviewStatus: "PENDING" })).toEqual([4]);
+    expect(ids({ file: "lib/a.c" })).toEqual([1, 2]);
+    expect(ids({ file: "lib/a.c", mutationStatus: "KILLED" })).toEqual([2]);
   });
 });

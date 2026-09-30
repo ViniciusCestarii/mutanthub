@@ -15,20 +15,39 @@ import { Section } from "@/components/shared/section";
 import { Stat } from "@/components/shared/stat";
 import { EmptyState } from "@/components/shared/empty-state";
 import { MutantTable } from "@/components/mutants/mutant-table";
+import { buildQuery } from "@/components/mutants/mutant-filters";
+import { PullRequestMutantFilters } from "@/components/pull-requests/pr-mutant-filters";
 import { PullRequestStateBadge } from "@/components/pull-requests/state-badge";
 import { Bug } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 type Params = Promise<{ owner: string; repo: string; number: string }>;
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+function firstValues(sp: Awaited<SearchParams>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(sp)) {
+    const value = Array.isArray(v) ? v[0] : v;
+    if (value) out[k] = value;
+  }
+  return out;
+}
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { owner, repo, number } = await params;
   return { title: `PR #${number} · ${owner}/${repo}` };
 }
 
-export default async function PullRequestPage({ params }: { params: Params }) {
+export default async function PullRequestPage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: SearchParams;
+}) {
   const { owner, repo, number: rawNumber } = await params;
+  const rawFilter = firstValues(await searchParams);
   const number = Number(rawNumber);
   if (!Number.isInteger(number) || number <= 0) notFound();
   const user = await getCurrentUser();
@@ -37,18 +56,18 @@ export default async function PullRequestPage({ params }: { params: Params }) {
   let detail;
   try {
     project = await projectService.getBySlugOrThrow(owner, repo);
-    detail = await pullRequestService.getDetail(project, number);
+    detail = await pullRequestService.getDetail(project, number, rawFilter);
   } catch (e) {
     if (isAppError(e) && e.code === "NOT_FOUND") notFound();
     throw e;
   }
-  const { pr, mutants, onDiff, files } = detail;
-  const offDiff = mutants.length - onDiff.length;
-  const surviving = onDiff.filter((m) => m.mutationStatus === "SURVIVED").length;
-  const killed = onDiff.filter((m) => m.mutationStatus === "KILLED").length;
-  const pending = onDiff.filter(
-    (m) => m.reviewStatus === "PENDING" || m.reviewStatus === "NEEDS_INFORMATION",
-  ).length;
+  const { pr, onDiff, offDiff, files, filter, stats, totals, filePaths } = detail;
+  const base = routes.projectPull(owner, repo, pr.number);
+  const filtered = Object.values(filter).some(Boolean);
+  const hrefWith = (over: Record<string, string | undefined>) =>
+    `${base}${buildQuery({ ...filter, ...over })}`;
+  const onlyStatus = (status: "SURVIVED" | "KILLED") =>
+    filter.mutationStatus === status && !filter.reviewStatus && !filter.superseded;
 
   return (
     <PageContainer className="space-y-4" wide>
@@ -103,10 +122,43 @@ export default async function PullRequestPage({ params }: { params: Params }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Stat label="Mutants on diff" value={onDiff.length} />
-        <Stat label="Surviving" value={surviving} tone={surviving ? "warning" : "default"} />
-        <Stat label="Killed" value={killed} tone={killed ? "success" : "default"} />
-        <Stat label="Pending review" value={pending} tone={pending ? "info" : "default"} />
+        <Stat
+          label="Mutants on diff"
+          value={stats.onDiff}
+          hint={stats.superseded ? `${stats.superseded} superseded not counted` : undefined}
+          href={base}
+          active={!filtered}
+          testId="pr-stat-on-diff"
+        />
+        <Stat
+          label="Surviving"
+          value={stats.surviving}
+          tone={stats.surviving ? "warning" : "default"}
+          href={hrefWith({
+            mutationStatus: "SURVIVED",
+            reviewStatus: undefined,
+            superseded: undefined,
+          })}
+          active={onlyStatus("SURVIVED")}
+          testId="pr-stat-surviving"
+        />
+        <Stat
+          label="Killed"
+          value={stats.killed}
+          tone={stats.killed ? "success" : "default"}
+          href={hrefWith({
+            mutationStatus: "KILLED",
+            reviewStatus: undefined,
+            superseded: undefined,
+          })}
+          active={onlyStatus("KILLED")}
+          testId="pr-stat-killed"
+        />
+        <Stat
+          label="Pending review"
+          value={stats.pending}
+          tone={stats.pending ? "info" : "default"}
+        />
         <Stat
           label="Changed files"
           value={pr.changedFiles}
@@ -122,26 +174,36 @@ export default async function PullRequestPage({ params }: { params: Params }) {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
+          <PullRequestMutantFilters action={base} values={filter} filePaths={filePaths} />
           <Section
             title="Mutants on changed lines"
-            description={`${onDiff.length} recorded against this pull request`}
+            description={`${onDiff.length} of ${totals.onDiff} recorded against this pull request`}
           >
-            <MutantTable
-              mutants={onDiff}
-              showProject={false}
-              emptyTitle="No mutants on the changed lines yet"
-              emptyDescription="Open a changed file in pull request mode and suggest a mutant on a highlighted line."
-            />
+            <div data-testid="pr-mutants-on-diff">
+              <MutantTable
+                mutants={onDiff}
+                showProject={false}
+                emptyTitle={
+                  totals.onDiff
+                    ? "No mutants match the filters"
+                    : "No mutants on the changed lines yet"
+                }
+                emptyDescription={
+                  totals.onDiff
+                    ? "Relax the filters, or show superseded results."
+                    : "Open a changed file in pull request mode and suggest a mutant on a highlighted line."
+                }
+              />
+            </div>
           </Section>
-          {offDiff > 0 ? (
+          {offDiff.length > 0 ? (
             <Section
               title="Other mutants recorded on this pull request"
-              description="Outside the changed lines"
+              description={`Outside the changed lines · ${offDiff.length} of ${totals.offDiff}`}
             >
-              <MutantTable
-                mutants={mutants.filter((m) => !onDiff.includes(m))}
-                showProject={false}
-              />
+              <div data-testid="pr-mutants-off-diff">
+                <MutantTable mutants={offDiff} showProject={false} />
+              </div>
             </Section>
           ) : null}
         </div>
@@ -166,7 +228,15 @@ export default async function PullRequestPage({ params }: { params: Params }) {
                       {f.path}
                     </Link>
                     <span className="text-muted-foreground shrink-0 whitespace-nowrap">
-                      {f.changedLines} lines · {f.mutants} mutant{f.mutants === 1 ? "" : "s"}
+                      {f.changedLines} lines ·{" "}
+                      <Link
+                        href={hrefWith({ file: filter.file === f.path ? undefined : f.path })}
+                        className="hover:text-foreground underline-offset-2 hover:underline"
+                        title={filter.file === f.path ? "Show all files" : "Show only this file"}
+                        aria-current={filter.file === f.path ? "true" : undefined}
+                      >
+                        {f.mutants} mutant{f.mutants === 1 ? "" : "s"}
+                      </Link>
                     </span>
                   </li>
                 ))}

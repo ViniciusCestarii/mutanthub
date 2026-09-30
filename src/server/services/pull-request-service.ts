@@ -9,7 +9,12 @@ import {
 } from "@/domain/pull-requests/diff-ranges";
 import { AppError, forbidden, notFound, validationError } from "@/lib/errors";
 import { routes } from "@/lib/routes";
-import { fieldErrors, trackPullRequestSchema } from "@/lib/validation/schemas";
+import {
+  fieldErrors,
+  pullRequestMutantFilterSchema,
+  trackPullRequestSchema,
+} from "@/lib/validation/schemas";
+import { filterPullRequestMutants } from "@/domain/pull-requests/mutant-filter";
 import { enforceRateLimit } from "@/server/infra/rate-limit";
 import { getGitHubClient } from "@/server/github";
 import { isGitHubError } from "@/server/github/types";
@@ -110,21 +115,53 @@ export const pullRequestService = {
     return pullRequestRepository.listForProject(project.id);
   },
 
-  async getDetail(project: Project, number: number) {
+  /**
+   * The PR, its changed files and its mutants split by diff. Stats and file
+   * counts use the current results (superseded mutants left out, as in the
+   * check run); `onDiff` / `offDiff` are narrowed by the page filters.
+   */
+  async getDetail(project: Project, number: number, rawFilter: unknown = {}) {
     const pr = await pullRequestRepository.findByNumber(project.id, number);
     if (!pr) throw notFound("Pull request");
+    const parsed = pullRequestMutantFilterSchema.safeParse(rawFilter);
+    const filter = parsed.success ? parsed.data : {};
     const changed = parseChangedRanges(pr.changedRanges);
     const mutants = await pullRequestRepository.listMutants(pr.id);
-    const onDiff = mutants.filter((m) => mutantTouchesDiff(m, changed));
+    const touches = (m: (typeof mutants)[number]) => mutantTouchesDiff(m, changed);
+    const current = mutants.filter((m) => !m.superseded);
+    const currentOnDiff = current.filter(touches);
     const files = Object.entries(changed)
       .map(([path, ranges]) => ({
         path,
         ranges,
         changedLines: countChangedLines(ranges),
-        mutants: mutants.filter((m) => m.filePath === path && mutantTouchesDiff(m, changed)).length,
+        mutants: currentOnDiff.filter((m) => m.filePath === path).length,
       }))
       .sort((a, b) => a.path.localeCompare(b.path));
-    return { pr, changed, mutants, onDiff, files };
+    const filtered = filterPullRequestMutants(mutants, filter);
+    return {
+      pr,
+      changed,
+      files,
+      filter,
+      stats: {
+        onDiff: currentOnDiff.length,
+        surviving: currentOnDiff.filter((m) => m.mutationStatus === "SURVIVED").length,
+        killed: currentOnDiff.filter((m) => m.mutationStatus === "KILLED").length,
+        pending: currentOnDiff.filter(
+          (m) => m.reviewStatus === "PENDING" || m.reviewStatus === "NEEDS_INFORMATION",
+        ).length,
+        superseded: mutants.length - current.length,
+      },
+      totals: {
+        onDiff: mutants.filter(touches).length,
+        offDiff: mutants.filter((m) => !touches(m)).length,
+      },
+      onDiff: filtered.filter(touches),
+      offDiff: filtered.filter((m) => !touches(m)),
+      /** Every file with a mutant or a change, for the file filter. */
+      filePaths: [...new Set([...Object.keys(changed), ...mutants.map((m) => m.filePath)])].sort(),
+    };
   },
 
   /** Changed ranges for one file at the PR head, for the code browser's PR mode. */
@@ -168,6 +205,7 @@ export const pullRequestService = {
       mutationStatus: m.mutationStatus,
       validations: m._count.validations,
       commitSha: m.revision.commitSha,
+      superseded: m.superseded,
     }));
     const base = appBaseUrl();
     const claims = await killClaimRepository.listForPullRequest(pr.id);

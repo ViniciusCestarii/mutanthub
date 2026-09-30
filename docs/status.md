@@ -29,6 +29,10 @@ What is implemented and what is planned.
   changed lines highlighted, submit mutants scoped to the pull request (only on lines the pull
   request changed, enforced server-side), and publish a
   non-blocking "MutantHub" check run on GitHub summarising the mutants on the changed lines.
+  The pull request page filters its mutants by outcome, review status and file (the stat tiles
+  and per-file counts are shortcuts). Both the page and the check run count each mutation once,
+  with its latest result: mutants superseded by a newer push are hidden unless asked for, and an
+  import at a pull request head refreshes its check run.
 - In-app notifications: submitters and everyone who commented or reproduced a mutant hear about
   review decisions, reproductions, classifications and comments; reviewers hear about new,
   edited and resubmitted submissions. Header bell with unread count, `/notifications` inbox,
