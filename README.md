@@ -63,3 +63,7 @@ the details and [Configuration](docs/configuration.md) to connect real GitHub.
 
 Run `npm test` and `npm run test:e2e` before opening a pull request; CI runs lint, type-check,
 Prettier, unit, API and end-to-end suites on every push and pull request.
+
+## License
+
+The source code is released under the [MIT License](LICENSE).
