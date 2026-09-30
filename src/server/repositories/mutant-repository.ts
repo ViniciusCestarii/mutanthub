@@ -194,7 +194,8 @@ export interface CreateMutantData {
   title: string;
   description: string | null;
   fingerprint: string;
-  similarityKey: string;
+  similarityKey: string | null;
+  similarityKeyVersion: number;
   mutationStatus: MutationStatus;
   createdById: string;
   pullRequestId: string | null;
@@ -261,10 +262,69 @@ export const mutantRepository = {
     });
   },
 
-  /** Exactly the same mutation (equal similarity key) under any other fingerprint. */
-  findSameMutation(similarityKey: string, excludeFingerprint: string) {
+  /** Mutants whose similarity key predates `version`, grouped by commit and file. */
+  listForSimilarityBackfill(version: number, take: number) {
     return prisma.mutant.findMany({
-      where: { similarityKey, fingerprint: { not: excludeFingerprint } },
+      where: { similarityKeyVersion: { lt: version } },
+      select: {
+        id: true,
+        projectId: true,
+        filePath: true,
+        startLine: true,
+        endLine: true,
+        originalCode: true,
+        mutatedCode: true,
+        similarityKey: true,
+        revision: { select: { commitSha: true } },
+        project: { select: { githubOwner: true, githubRepository: true } },
+      },
+      orderBy: [{ revisionId: "asc" }, { filePath: "asc" }, { id: "asc" }],
+      take,
+    });
+  },
+
+  countForSimilarityBackfill(version: number) {
+    return prisma.mutant.count({ where: { similarityKeyVersion: { lt: version } } });
+  },
+
+  /**
+   * Stores recomputed similarity keys and refreshes the superseded flags of
+   * both the groups the mutants left and the ones they joined.
+   */
+  async setSimilarityKeys(
+    updates: Array<{
+      id: number;
+      previousKey: string | null;
+      similarityKey: string | null;
+      similarityKeyVersion: number;
+    }>,
+  ) {
+    for (let i = 0; i < updates.length; i += 500) {
+      const chunk = updates.slice(i, i + 500);
+      await prisma.$transaction(
+        async (tx) => {
+          for (const u of chunk)
+            await tx.mutant.update({
+              where: { id: u.id },
+              data: {
+                similarityKey: u.similarityKey,
+                similarityKeyVersion: u.similarityKeyVersion,
+              },
+            });
+          await refreshSuperseded(
+            tx,
+            chunk.flatMap((u) => [u.previousKey, u.similarityKey]),
+          );
+        },
+        { timeout: 120_000 },
+      );
+    }
+  },
+
+  /** The same mutation (equal similarity key) recorded at another commit. */
+  findSameMutation(similarityKey: string, revisionId: string) {
+    return prisma.mutant.findMany({
+      where: { similarityKey, revisionId: { not: revisionId } },
       select: {
         id: true,
         mutationStatus: true,
@@ -276,30 +336,36 @@ export const mutantRepository = {
   },
 
   /**
-   * The same mutation at other revisions or lines: an equal similarity key
-   * (normalized code pair), plus a looser substring match on the code columns
-   * so partial snippets typed in the drawer still surface candidates.
+   * The same mutation at other commits: an equal similarity key (code pair plus
+   * surrounding lines). Mutants at `revisionId` itself are never similar: the
+   * same code at another line of one commit is a different mutant. With `text`
+   * (the submission drawer), a substring match on the code columns is added so
+   * partially typed snippets still surface candidates; an empty snippet only
+   * matches an empty one, so a deletion does not match every mutant.
    */
   findSimilar(params: {
     projectId: string;
     filePath: string;
-    originalCode: string;
-    mutatedCode: string;
-    similarityKey: string;
-    excludeFingerprint?: string;
+    revisionId?: string;
+    similarityKey: string | null;
+    text?: { originalCode: string; mutatedCode: string };
   }) {
+    const original = params.text?.originalCode.trim();
+    const mutated = params.text?.mutatedCode.trim();
+    const or: Prisma.MutantWhereInput[] = [];
+    if (params.similarityKey) or.push({ similarityKey: params.similarityKey });
+    if (original)
+      or.push({
+        originalCode: { contains: original, mode: "insensitive" },
+        mutatedCode: mutated ? { contains: mutated, mode: "insensitive" } : { equals: "" },
+      });
+    if (or.length === 0) return Promise.resolve([]);
     return prisma.mutant.findMany({
       where: {
         projectId: params.projectId,
         filePath: params.filePath,
-        fingerprint: params.excludeFingerprint ? { not: params.excludeFingerprint } : undefined,
-        OR: [
-          { similarityKey: params.similarityKey },
-          {
-            originalCode: { contains: params.originalCode.trim(), mode: "insensitive" },
-            mutatedCode: { contains: params.mutatedCode.trim(), mode: "insensitive" },
-          },
-        ],
+        revisionId: params.revisionId ? { not: params.revisionId } : undefined,
+        OR: or,
       },
       select: mutantListSelect,
       orderBy: { createdAt: "asc" },
@@ -461,6 +527,7 @@ export const mutantRepository = {
       | "description"
       | "fingerprint"
       | "similarityKey"
+      | "similarityKeyVersion"
     >;
     submission: CreateMutantData["submission"];
     changedFields: string[];

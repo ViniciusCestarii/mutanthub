@@ -256,6 +256,8 @@ model Mutant {
   fingerprint      String
   /// Same mutation at any revision or line; see computeSimilarityKey. Null until backfilled.
   similarityKey    String?
+  /// Scheme of similarityKey (see SIMILARITY_KEY_VERSION); 1 = code pair only, awaiting backfill.
+  similarityKeyVersion Int         @default(1)
   /// A newer commit has a result for the same mutation; see server/repositories/superseded.ts.
   superseded       Boolean          @default(false)
   reviewStatus     ReviewStatus     @default(PENDING)

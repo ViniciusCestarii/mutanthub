@@ -101,7 +101,9 @@ docker compose -f docker-compose.prod.yml exec -T postgres \
   (`docker compose -f docker-compose.prod.yml --profile jobs up -d`), which calls
   `POST /api/jobs/drift` with the bearer token once a day (`JOBS_INTERVAL_SECONDS`). Any external
   scheduler works too: `curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/jobs/drift`.
-  Maintainers can also run it from the project settings page.
+  Maintainers can also run it from the project settings page. The same service also calls
+  `POST /api/jobs/similarity`, which finishes recomputing older similarity keys if a GitHub rate
+  limit stopped the deploy-time `db:similarity` run (a no-op otherwise).
 - Reverse proxy: the `web` profile's Caddy does this for you. With your own proxy (nginx,
   Traefik), terminate TLS and forward `X-Forwarded-For`, which the rate limiter uses, and
   `X-Forwarded-Host` or the original `Host`, which the upload endpoints compare with the

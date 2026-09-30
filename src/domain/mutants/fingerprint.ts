@@ -48,19 +48,65 @@ export function computeFingerprint(input: FingerprintInput): string {
   return createHash("sha256").update(material).digest("hex");
 }
 
+/** Nearest non-blank lines around a mutant, normalized like the code pair. */
+export interface SimilarityContext {
+  before: string[];
+  after: string[];
+}
+
+/** Non-blank lines taken on each side of the mutated span. */
+export const SIMILARITY_CONTEXT_LINES = 2;
+
 /**
- * Looser fingerprint used for "possible duplicate" hints: ignores the revision
- * and the line, so the same mutation submitted against a newer commit (or at a
- * mistyped line) is surfaced to reviewers.
+ * Current similarity key scheme. Version 1 keys (code pair only) are left on
+ * older rows until the similarity backfill job recomputes them; the two
+ * versions never match each other.
+ */
+export const SIMILARITY_KEY_VERSION = 2;
+
+/**
+ * The lines around `startLine..endLine` of a file, skipping blank lines so an
+ * inserted empty line does not change the key.
+ */
+export function extractSimilarityContext(
+  content: string,
+  startLine: number,
+  endLine: number,
+  radius = SIMILARITY_CONTEXT_LINES,
+): SimilarityContext {
+  const lines = content.replace(/\r\n?/g, "\n").split("\n");
+  const pick = (from: number, step: number) => {
+    const out: string[] = [];
+    for (let i = from; i >= 0 && i < lines.length && out.length < radius; i += step) {
+      const line = normalizeCode(lines[i]);
+      if (line) out.push(line);
+    }
+    return out;
+  };
+  return {
+    before: pick(startLine - 2, -1).reverse(),
+    after: pick(endLine, 1),
+  };
+}
+
+/**
+ * Identity of a mutation independent of commit and exact line: the normalized
+ * code pair plus the nearest surrounding lines. It links runs of a tool across
+ * commits (the code may have moved), while a statement repeated elsewhere in
+ * the file (e.g. `return 0;`) gets a different key because its surroundings
+ * differ. Used for "similar" hints, the import report and superseded results.
  */
 export function computeSimilarityKey(
-  input: Omit<FingerprintInput, "revisionId" | "startLine">,
+  input: Omit<FingerprintInput, "revisionId" | "startLine"> & { context: SimilarityContext },
 ): string {
   const material = encodeFields([
+    `v${SIMILARITY_KEY_VERSION}`,
     input.projectId,
     input.filePath.trim(),
     normalizeCode(input.originalCode),
     normalizeCode(input.mutatedCode),
+    encodeFields(input.context.before),
+    encodeFields(input.context.after),
   ]);
   return createHash("sha256").update(material).digest("hex");
 }

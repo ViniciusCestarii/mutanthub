@@ -6,7 +6,7 @@ import {
   canSubmitMutant,
   isMutantOwner,
 } from "@/domain/auth/permissions";
-import { computeFingerprint, computeSimilarityKey } from "@/domain/mutants/fingerprint";
+import { computeFingerprint } from "@/domain/mutants/fingerprint";
 import { generateTitle } from "@/domain/mutants/title";
 import { generateUnifiedDiff, looksLikeUnifiedDiff } from "@/domain/mutants/diff";
 import { formatRanges, spanWithinRanges } from "@/domain/pull-requests/diff-ranges";
@@ -39,6 +39,7 @@ import {
 import { projectRepository } from "@/server/repositories/project-repository";
 import { projectService } from "./project-service";
 import { pullRequestService } from "./pull-request-service";
+import { similarityKeyAt } from "./similarity";
 
 export interface DuplicateCheck {
   exact: MutantListItem[];
@@ -113,11 +114,10 @@ export const mutantService = {
       originalCode: input.originalCode,
       mutatedCode: input.mutatedCode,
     });
-    const similarityKey = computeSimilarityKey({
-      projectId: project.id,
-      filePath: input.filePath,
-      originalCode: input.originalCode,
-      mutatedCode: input.mutatedCode,
+    const similarity = await similarityKeyAt(project, revision.commitSha, input).catch((e) => {
+      if (isGitHubError(e) && e.kind === "RATE_LIMITED")
+        throw new AppError("UPSTREAM", "GitHub rate limit reached. Please try again later.");
+      throw e;
     });
 
     // Pull request mode: the mutant must sit on lines the pull request changed, at its head.
@@ -165,7 +165,7 @@ export const mutantService = {
         }),
       description: input.description ?? null,
       fingerprint,
-      similarityKey,
+      ...similarity,
       mutationStatus: initialMutationStatus(input.observedResult),
       createdById: principal.id,
       submission: {
@@ -190,6 +190,7 @@ export const mutantService = {
       startLine: input.startLine,
       originalCode: input.originalCode,
       mutatedCode: input.mutatedCode,
+      similarityKey: similarity.similarityKey,
       excludeMutantId: created.id,
     });
     void pullRequestService.refreshForMutant(created);
@@ -197,7 +198,10 @@ export const mutantService = {
     return { mutant: created, duplicates };
   },
 
-  /** Exact (same fingerprint) and similar (same code at other revisions or lines) mutants. */
+  /**
+   * Exact (same fingerprint) and similar (same mutation at another commit)
+   * mutants. `text` adds the drawer's substring match on the code.
+   */
   async findDuplicates(params: {
     projectId: string;
     revisionId: string;
@@ -205,15 +209,19 @@ export const mutantService = {
     startLine: number;
     originalCode: string;
     mutatedCode: string;
+    similarityKey: string | null;
     excludeMutantId?: number;
+    text?: boolean;
   }): Promise<DuplicateCheck> {
     const fingerprint = computeFingerprint(params);
     const [exactAll, similarAll] = await Promise.all([
       mutantRepository.findByFingerprint(fingerprint),
       mutantRepository.findSimilar({
-        ...params,
-        similarityKey: computeSimilarityKey(params),
-        excludeFingerprint: fingerprint,
+        projectId: params.projectId,
+        filePath: params.filePath,
+        revisionId: params.revisionId,
+        similarityKey: params.similarityKey,
+        text: params.text ? params : undefined,
       }),
     ]);
     const exact = exactAll.filter((m) => m.id !== params.excludeMutantId);
@@ -232,19 +240,23 @@ export const mutantService = {
   }): Promise<DuplicateCheck> {
     const project = await projectRepository.findById(params.projectId);
     if (!project) throw notFound("Project");
+    const endLine = params.startLine + params.originalCode.split("\n").length - 1;
+    const { similarityKey } = await similarityKeyAt(project, params.commitSha, {
+      ...params,
+      endLine,
+    });
     const revision = await projectRepository.findRevision(project.id, params.commitSha);
     if (!revision) {
       // No mutant exists for this commit yet, so only similar matches are possible.
       const similar = await mutantRepository.findSimilar({
         projectId: project.id,
         filePath: params.filePath,
-        originalCode: params.originalCode,
-        mutatedCode: params.mutatedCode,
-        similarityKey: computeSimilarityKey({ ...params, projectId: project.id }),
+        similarityKey,
+        text: params,
       });
       return { exact: [], similar };
     }
-    return this.findDuplicates({ ...params, revisionId: revision.id });
+    return this.findDuplicates({ ...params, revisionId: revision.id, similarityKey, text: true });
   },
 
   async getDetail(principal: Principal | null, id: number): Promise<MutantDetailView> {
@@ -259,6 +271,7 @@ export const mutantService = {
         startLine: mutant.startLine,
         originalCode: mutant.originalCode,
         mutatedCode: mutant.mutatedCode,
+        similarityKey: mutant.similarityKey,
         excludeMutantId: mutant.id,
       }),
     ]);
@@ -320,11 +333,16 @@ export const mutantService = {
       originalCode: input.originalCode,
       mutatedCode: input.mutatedCode,
     });
-    const similarityKey = computeSimilarityKey({
-      projectId: mutant.projectId,
+    const similarity = await similarityKeyAt(mutant.project, mutant.revision.commitSha, {
       filePath: mutant.filePath,
+      startLine: mutant.startLine,
+      endLine: mutant.endLine,
       originalCode: input.originalCode,
       mutatedCode: input.mutatedCode,
+    }).catch((e) => {
+      if (isGitHubError(e) && e.kind === "RATE_LIMITED")
+        throw new AppError("UPSTREAM", "GitHub rate limit reached. Please try again later.");
+      throw e;
     });
 
     const fields = {
@@ -341,7 +359,7 @@ export const mutantService = {
       gitDiff,
       description: input.description ?? null,
       fingerprint,
-      similarityKey,
+      ...similarity,
     };
     const latest = mutant.submissions[mutant.submissions.length - 1];
     const submission = {
@@ -359,7 +377,11 @@ export const mutantService = {
     };
     const changedFields = [
       ...(Object.keys(fields) as Array<keyof typeof fields>).filter(
-        (k) => k !== "fingerprint" && k !== "similarityKey" && fields[k] !== mutant[k],
+        (k) =>
+          k !== "fingerprint" &&
+          k !== "similarityKey" &&
+          k !== "similarityKeyVersion" &&
+          fields[k] !== mutant[k],
       ),
       ...(Object.keys(submission) as Array<keyof typeof submission>).filter(
         (k) => !latest || submission[k] !== latest[k],
@@ -382,6 +404,7 @@ export const mutantService = {
       startLine: mutant.startLine,
       originalCode: input.originalCode,
       mutatedCode: input.mutatedCode,
+      similarityKey: similarity.similarityKey,
       excludeMutantId: mutant.id,
     });
     return { mutant: updated, duplicates, changedFields };

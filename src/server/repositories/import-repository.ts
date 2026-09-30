@@ -32,7 +32,8 @@ export interface ImportMutantData {
   title: string;
   description: string | null;
   fingerprint: string;
-  similarityKey: string;
+  similarityKey: string | null;
+  similarityKeyVersion: number;
   mutationStatus: MutationStatus;
   externalId: string | null;
   submission: {
