@@ -50,10 +50,19 @@ export const mutantListSelect = {
 
 export type MutantListItem = Prisma.MutantGetPayload<{ select: typeof mutantListSelect }>;
 
+const pullRequestSummarySelect = {
+  number: true,
+  title: true,
+  state: true,
+  headSha: true,
+} satisfies Prisma.PullRequestSelect;
+
 /** Everything the detail page and the review panel need. */
 export const mutantDetailInclude = {
   project: true,
-  revision: true,
+  // A mutant belongs to a PR when submitted against it, or when recorded at one of its heads.
+  revision: { include: { pullRequest: { select: pullRequestSummarySelect } } },
+  pullRequest: { select: pullRequestSummarySelect },
   createdBy: { select: userSummarySelect },
   duplicateOf: { select: { id: true, title: true, reviewStatus: true } },
   duplicates: { select: { id: true, title: true, createdAt: true } },

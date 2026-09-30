@@ -1,20 +1,64 @@
 import Link from "next/link";
-import { Copy, GitCommitHorizontal, History, TriangleAlert } from "lucide-react";
+import { Copy, GitCommitHorizontal, GitPullRequest, History, TriangleAlert } from "lucide-react";
 import type { MutantDetailView } from "@/server/services/mutant-service";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { routes } from "@/lib/routes";
 import { relativeTime, shortSha } from "@/lib/format";
 import { MUTATION_STATUS_LABEL } from "@/domain/mutants/status";
+import { PullRequestStateBadge } from "@/components/pull-requests/state-badge";
 
-/** Commit drift, duplicate-of and possible-duplicate notices. */
+/** Pull request, commit drift, duplicate-of and possible-duplicate notices. */
 export function MutantNotices({ view }: { view: MutantDetailView }) {
-  const { mutant, isOlderRevision, headSha, duplicateCheck } = view;
+  const { mutant, isOlderRevision, headSha, duplicateCheck, pullRequest } = view;
   const hasPossible = duplicateCheck.exact.length > 0 || duplicateCheck.similar.length > 0;
   const drifted = mutant.driftStatus === "MOVED" || mutant.driftStatus === "GONE";
-  if (!isOlderRevision && !mutant.duplicateOf && !hasPossible && !drifted) return null;
+  if (!pullRequest && !isOlderRevision && !mutant.duplicateOf && !hasPossible && !drifted)
+    return null;
+  const { githubOwner: owner, githubRepository: repo } = mutant.project;
 
   return (
     <div className="space-y-2" data-testid="mutant-notices">
+      {pullRequest ? (
+        <Alert data-testid="pull-request-notice" data-at-head={pullRequest.atHead}>
+          <GitPullRequest className="text-muted-foreground" />
+          <AlertTitle className="flex flex-wrap items-center gap-2">
+            <span>
+              Part of pull request{" "}
+              <Link
+                href={routes.projectPull(owner, repo, pullRequest.number)}
+                className="underline underline-offset-2"
+              >
+                #{pullRequest.number} {pullRequest.title}
+              </Link>
+            </span>
+            <PullRequestStateBadge state={pullRequest.state} />
+          </AlertTitle>
+          <AlertDescription>
+            {pullRequest.atHead ? (
+              <>
+                Recorded at the pull request&apos;s head{" "}
+                <span className="font-mono">{shortSha(mutant.revision.commitSha)}</span>.
+              </>
+            ) : (
+              <>
+                Recorded at an earlier push (
+                <span className="font-mono">{shortSha(mutant.revision.commitSha)}</span>); the pull
+                request head is now{" "}
+                <a
+                  href={routes.github.commit(owner, repo, pullRequest.headSha)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono underline underline-offset-2"
+                >
+                  {shortSha(pullRequest.headSha)}
+                </a>
+                . Line numbers may no longer match.
+              </>
+            )}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       {isOlderRevision && headSha ? (
         <Alert className="border-amber-500/40 bg-amber-500/5" data-testid="older-revision-notice">
           <History className="text-amber-600 dark:text-amber-400" />
