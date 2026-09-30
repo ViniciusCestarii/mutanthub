@@ -14,6 +14,8 @@ export interface CheckMutant {
   validations: number;
   /** Commit the mutant was recorded against. */
   commitSha: string;
+  /** A newer push of the PR has a result for the same mutation. */
+  superseded: boolean;
 }
 
 export interface CheckSummary {
@@ -30,6 +32,7 @@ export interface CheckSummary {
     pendingReview: number;
     offDiff: number;
     olderHead: number;
+    superseded: number;
   };
 }
 
@@ -38,7 +41,9 @@ const ACTIVE_REVIEW: ReviewStatus[] = ["PENDING", "NEEDS_INFORMATION", "APPROVED
 /**
  * Summarises the mutants of a pull request for a GitHub check run.
  * Only mutants on lines the PR changed count towards the headline; the rest
- * are listed as context. Wording never treats a surviving mutant as a defect.
+ * are listed as context. Superseded mutants (the same mutation has a result at
+ * a newer push) are left out so each mutation counts once, with its latest
+ * result. Wording never treats a surviving mutant as a defect.
  */
 export interface CheckClaim {
   mutantId: number;
@@ -54,7 +59,9 @@ export function buildCheckSummary(
   baseUrl: string,
   claims: CheckClaim[] = [],
 ): CheckSummary {
-  const relevant = mutants.filter((m) => ACTIVE_REVIEW.includes(m.reviewStatus));
+  const active = mutants.filter((m) => ACTIVE_REVIEW.includes(m.reviewStatus));
+  const relevant = active.filter((m) => !m.superseded);
+  const superseded = active.length - relevant.length;
   const onDiff = relevant.filter((m) => mutantTouchesDiff(m, changed));
   const offDiff = relevant.length - onDiff.length;
   const olderHead = onDiff.filter((m) => m.commitSha !== pr.headSha).length;
@@ -66,6 +73,7 @@ export function buildCheckSummary(
     pendingReview: onDiff.filter((m) => m.reviewStatus !== "APPROVED").length,
     offDiff,
     olderHead,
+    superseded,
   };
 
   const title =
@@ -99,6 +107,12 @@ export function buildCheckSummary(
     lines.push("");
     lines.push(
       `${offDiff} more mutant${offDiff === 1 ? "" : "s"} recorded on this pull request outside the changed lines.`,
+    );
+  }
+  if (superseded > 0) {
+    lines.push("");
+    lines.push(
+      `${superseded} earlier result${superseded === 1 ? "" : "s"} replaced by a newer run of the same mutation ${superseded === 1 ? "is" : "are"} not counted.`,
     );
   }
   if (olderHead > 0) {

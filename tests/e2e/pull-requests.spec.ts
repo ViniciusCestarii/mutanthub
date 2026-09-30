@@ -119,4 +119,105 @@ test.describe("pull requests", () => {
     const row = page.getByTestId("pull-request-row").filter({ hasText: `#${PR}` });
     await expect(row).toBeVisible();
   });
+
+  test("the pull request page filters its mutants and hides superseded results", async ({
+    page,
+  }) => {
+    const HEAD = "e8d1c4b7a2f5e8d1c4b7a2f5e8d1c4b7a2f5e8d1";
+    const OLDER = "a4c7e1f9b3d5a7c9e1f3b5d7a9c1e3f5b7d9a1c3";
+    const survivor = "PR filters: inverted port bound";
+    const killed = "PR filters: port multiplier";
+    const offDiff = "PR filters: escape padding";
+    const escapeRow = {
+      file: "lib/escape.c",
+      startLine: 87,
+      originalCode: "  alloc = length * 3 + 1;",
+      mutatedCode: "  alloc = length * 4 + 1;",
+    };
+    const upload = async (commit: string, mutants: object[]) => {
+      await page.goto(`/projects/${OWNER}/${REPO}/import`);
+      await page.waitForLoadState("networkidle");
+      await page.getByTestId("import-file").setInputFiles({
+        name: `pr-${commit.slice(0, 7)}.json`,
+        mimeType: "application/json",
+        buffer: Buffer.from(
+          JSON.stringify({
+            tool: { name: "pr-mutator", version: "1.0.0" },
+            defaults: { commit, testCommand: "make test-ci", observedResult: "SURVIVED" },
+            mutants,
+          }),
+        ),
+      });
+      await page.getByTestId("import-dry-run").click();
+      await page.getByTestId("import-commit").click();
+      await expect(page.getByTestId("import-done")).toBeVisible();
+    };
+
+    await signInAs(page, "bruno");
+    // A run at the PR head: two mutants on changed lines of lib/url.c, one outside the diff.
+    await upload(HEAD, [
+      {
+        file: "lib/url.c",
+        startLine: 117,
+        originalCode: "    if(value > MAX_PORT)",
+        mutatedCode: "    if(value < MAX_PORT)",
+        title: survivor,
+      },
+      {
+        file: "lib/url.c",
+        startLine: 116,
+        originalCode: "    value = value * 10 + (unsigned long)(*p - '0');",
+        mutatedCode: "    value = value * 11 + (unsigned long)(*p - '0');",
+        title: killed,
+        observedResult: "KILLED",
+      },
+      { ...escapeRow, title: offDiff },
+    ]);
+
+    const base = `/projects/${OWNER}/${REPO}/pulls/${PR}`;
+    const onDiff = page.getByTestId("pr-mutants-on-diff");
+    const other = page.getByTestId("pr-mutants-off-diff");
+    await page.goto(base);
+    await expect(onDiff).toContainText(survivor);
+    await expect(onDiff).toContainText(killed);
+    await expect(other).toContainText(offDiff);
+
+    // The "Surviving" tile applies the outcome filter to both sections.
+    await page.getByTestId("pr-stat-surviving").click();
+    await page.waitForURL(/mutationStatus=SURVIVED/);
+    await expect(page.getByTestId("pr-filter-mutation-status")).toHaveValue("SURVIVED");
+    await expect(onDiff).toContainText(survivor);
+    await expect(onDiff).not.toContainText(killed);
+    await expect(other).toContainText(offDiff);
+
+    // Filters combine: surviving mutants in one file.
+    await page.goto(`${base}?mutationStatus=KILLED&file=lib/url.c`);
+    await expect(onDiff).toContainText(killed);
+    await expect(onDiff).not.toContainText(survivor);
+    await expect(other).toHaveCount(0);
+
+    // The same escape.c mutation is judged equivalent at another commit, which supersedes
+    // the survivor recorded on the PR: it drops out unless superseded results are shown.
+    await upload(OLDER, [{ ...escapeRow, title: `${offDiff} (older)` }]);
+    await page.goto(`/projects/${OWNER}/${REPO}/mutants?q=${encodeURIComponent(offDiff)}`);
+    await page.getByText(`${offDiff} (older)`).click();
+    await page.waitForURL(/\/mutants\/\d+$/);
+    await page.waitForLoadState("networkidle");
+    await page.getByTestId("classify-status").click();
+    await page.getByTestId("classify-option-EQUIVALENT").click();
+    await page.getByTestId("classify-comment").fill("Padding is never read");
+    await page.getByTestId("classify-submit").click();
+    await expect(page.getByTestId("mutant-header").getByTestId("mutation-status")).toHaveAttribute(
+      "data-status",
+      "EQUIVALENT",
+    );
+
+    await page.goto(base);
+    await expect(onDiff).toContainText(survivor);
+    await expect(page.getByText(offDiff, { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("pr-stat-on-diff")).toContainText("1 superseded not counted");
+    await page.goto(`${base}?superseded=only`);
+    await expect(other).toContainText(offDiff);
+    await expect(onDiff).not.toContainText(survivor);
+  });
 });

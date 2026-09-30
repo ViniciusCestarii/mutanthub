@@ -16,6 +16,7 @@ import { mutantRepository } from "@/server/repositories/mutant-repository";
 import { notificationRepository } from "@/server/repositories/notification-repository";
 import type { Prisma, Project, Revision } from "@/generated/prisma/client";
 import { projectService } from "./project-service";
+import { pullRequestService } from "./pull-request-service";
 import { prisma } from "@/server/db/prisma";
 
 export interface ImportReport {
@@ -145,6 +146,16 @@ export const importService = {
       },
     });
     await notifyReviewers(project, principal!.id, ids.length, prepared.report.toolName);
+    // Rows on a PR head show up on that PR (and may supersede earlier pushes): update its check.
+    const pullRequestIds = new Set(
+      [...prepared.revisions.values()].map((r) => r.pullRequestId).filter((id) => id !== null),
+    );
+    for (const id of pullRequestIds)
+      void pullRequestService
+        .refreshCheckRun(id)
+        .catch((error) =>
+          console.error("[check-run] refresh after import failed", (error as Error).message),
+        );
     return { batch, createdIds: ids, report: prepared.report };
   },
 

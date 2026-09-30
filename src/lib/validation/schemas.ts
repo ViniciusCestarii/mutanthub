@@ -315,6 +315,20 @@ export const mutantListFilterSchema = z.object({
 
 export type MutantListFilter = z.infer<typeof mutantListFilterSchema>;
 
+/**
+ * Filters for the mutants on a pull request page. Unlike the mutant list,
+ * superseded mutants (a newer push has a result for the same mutation) are
+ * hidden unless `superseded` is "show" or "only".
+ */
+export const pullRequestMutantFilterSchema = z.object({
+  mutationStatus: mutationStatusSchema.optional(),
+  reviewStatus: reviewStatusSchema.optional(),
+  file: z.string().trim().max(LIMITS.filePath).optional(),
+  superseded: z.enum(["show", "only"]).optional(),
+});
+
+export type PullRequestMutantFilter = z.infer<typeof pullRequestMutantFilterSchema>;
+
 export const reviewQueueFilterSchema = z.object({
   project: z.string().trim().max(200).optional(),
   contributor: z.string().trim().max(100).optional(),
