@@ -111,7 +111,7 @@ export default async function ProjectMutantsPage({
           </>
         }
       />
-      <MutantFilters action={base} values={values} projects={[]} languages={[]} lockProject />
+      <MutantFilters action={base} values={values} projects={[]} lockProject />
       <div className="text-muted-foreground text-xs" data-testid="mutant-count">
         {total} mutant{total === 1 ? "" : "s"}
         {filter.file ? (

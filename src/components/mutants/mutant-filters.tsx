@@ -139,7 +139,6 @@ export function buildQuery(values: Record<string, string | number | undefined | 
 
 export interface MutantFilterValues {
   project?: string;
-  language?: string;
   operator?: MutationOperator;
   reviewStatus?: ReviewStatus;
   mutationStatus?: MutationStatus;
@@ -157,7 +156,6 @@ interface MutantFiltersProps {
   action: string;
   values: MutantFilterValues;
   projects: FilterOption[];
-  languages: string[];
   /** When true the project select is hidden (project pages). */
   lockProject?: boolean;
 }
@@ -166,7 +164,6 @@ export function MutantFilters({
   action,
   values,
   projects,
-  languages,
   lockProject,
 }: MutantFiltersProps) {
   const active = Object.entries(values).filter(
@@ -189,15 +186,6 @@ export function MutantFilters({
               options={projects}
               placeholder="All projects"
               testId="filter-project"
-            />
-          </FilterField>
-        )}
-        {lockProject ? null : (
-          <FilterField label="Language">
-            <FilterSelect
-              name="language"
-              value={values.language}
-              options={languages.map((l) => ({ value: l, label: l }))}
             />
           </FilterField>
         )}

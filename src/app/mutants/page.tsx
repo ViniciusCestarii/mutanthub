@@ -41,7 +41,6 @@ export default async function MutantsPage({
 
   const values: MutantFilterValues = {
     project: filter.project,
-    language: filter.language,
     operator: filter.operator,
     reviewStatus: filter.reviewStatus,
     mutationStatus: filter.mutationStatus,
@@ -52,9 +51,6 @@ export default async function MutantsPage({
     drift: filter.drift,
     superseded: filter.superseded,
   };
-  const languages = [
-    ...new Set(projects.map((p) => p.language).filter((l): l is string => Boolean(l))),
-  ].sort();
   const query = { ...values, pageSize: filter.pageSize !== 25 ? filter.pageSize : undefined };
   const apiHref = `/api/mutants${buildQuery({ ...query, page: filter.page })}`;
 
@@ -85,7 +81,6 @@ export default async function MutantsPage({
           value: `${p.githubOwner}/${p.githubRepository}`,
           label: `${p.githubOwner}/${p.githubRepository}`,
         }))}
-        languages={languages}
       />
       <div className="text-muted-foreground text-xs" data-testid="mutant-count">
         {total} mutant{total === 1 ? "" : "s"}
