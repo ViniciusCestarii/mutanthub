@@ -120,9 +120,20 @@ export const MUTATION_STATUS_OPTIONS: FilterOption[] = MUTATION_STATUSES.map((s)
   label: MUTATION_STATUS_LABEL[s],
 }));
 export const SUPERSEDED_OPTIONS: FilterOption[] = [
-  { value: "hide", label: "Hide (latest only)" },
+  { value: "show", label: "Show all" },
   { value: "only", label: "Only superseded" },
 ];
+
+/**
+ * The list pages hide superseded mutants unless the URL asks to "show" them or
+ * for "only" them; the API shows them by default. Returns the page's value and
+ * the matching API filter.
+ */
+export function supersededView(raw?: string) {
+  const view: "show" | "only" | undefined = raw === "show" || raw === "only" ? raw : undefined;
+  const filter = view === "show" ? undefined : (view ?? "hide");
+  return { view, filter };
+}
 export const DRIFT_STATUS_OPTIONS: FilterOption[] = DRIFT_STATUSES.map((s) => ({
   value: s,
   label: DRIFT_STATUS_LABEL[s],
@@ -155,7 +166,8 @@ export interface MutantFilterValues {
   /** Import batch id; carried as a hidden field so it survives re-filtering. */
   batch?: string;
   drift?: DriftStatus;
-  superseded?: "hide" | "only";
+  /** Page value; hiding superseded mutants is the default (see supersededView). */
+  superseded?: "show" | "only";
   since?: string;
   until?: string;
   /** Not a filter: kept in the query but never shown as a chip. */
@@ -352,7 +364,7 @@ export function MutantFilters({
               name="superseded"
               value={values.superseded}
               options={SUPERSEDED_OPTIONS}
-              placeholder="Show"
+              placeholder="Hide (latest only)"
               testId="filter-superseded"
             />
           </FilterField>

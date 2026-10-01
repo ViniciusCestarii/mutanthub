@@ -10,6 +10,7 @@ import { MutantTable } from "@/components/mutants/mutant-table";
 import {
   MutantFilters,
   buildQuery,
+  supersededView,
   type MutantFilterValues,
 } from "@/components/mutants/mutant-filters";
 import { Button } from "@/components/ui/button";
@@ -35,8 +36,9 @@ export default async function MutantsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const raw = firstValues(await searchParams);
+  const superseded = supersededView(raw.superseded);
   const [{ items, total, filter }, projects, contributors] = await Promise.all([
-    mutantService.list(raw),
+    mutantService.list({ ...raw, superseded: superseded.filter }),
     projectRepository.list({ activeOnly: true }),
     userRepository.listMutantContributors(),
   ]);
@@ -51,13 +53,13 @@ export default async function MutantsPage({
     file: filter.file,
     q: filter.q,
     drift: filter.drift,
-    superseded: filter.superseded,
+    superseded: superseded.view,
     since: filter.since,
     until: filter.until,
     sort: filter.sort,
   };
   const query = { ...values, pageSize: filter.pageSize !== 25 ? filter.pageSize : undefined };
-  const apiHref = `/api/mutants${buildQuery({ ...query, page: filter.page })}`;
+  const apiHref = `/api/mutants${buildQuery({ ...query, superseded: filter.superseded, page: filter.page })}`;
 
   return (
     <PageContainer wide className="space-y-4" data-testid="mutants-page">

@@ -12,6 +12,7 @@ import { MutantTable } from "@/components/mutants/mutant-table";
 import {
   MutantFilters,
   buildQuery,
+  supersededView,
   type MutantFilterValues,
 } from "@/components/mutants/mutant-filters";
 import { Button } from "@/components/ui/button";
@@ -55,9 +56,11 @@ export default async function ProjectMutantsPage({
   const { owner, repo } = await params;
   const project = await loadProject(owner, repo);
   const slug = `${project.githubOwner}/${project.githubRepository}`;
-  const raw = { ...firstValues(await searchParams), project: slug };
+  const sp = firstValues(await searchParams);
+  const raw = { ...sp, project: slug };
+  const superseded = supersededView(sp.superseded);
   const [{ items, total, filter }, contributors] = await Promise.all([
-    mutantService.list(raw),
+    mutantService.list({ ...raw, superseded: superseded.filter }),
     userRepository.listMutantContributors(project.id),
   ]);
 
@@ -72,7 +75,7 @@ export default async function ProjectMutantsPage({
     q: filter.q,
     batch: filter.batch,
     drift: filter.drift,
-    superseded: filter.superseded,
+    superseded: superseded.view,
     since: filter.since,
     until: filter.until,
     sort: filter.sort,
@@ -83,7 +86,7 @@ export default async function ProjectMutantsPage({
     pageSize: filter.pageSize !== 25 ? filter.pageSize : undefined,
   };
   const base = routes.projectMutants(project.githubOwner, project.githubRepository);
-  const apiHref = `/api/mutants${buildQuery({ ...values, page: filter.page })}`;
+  const apiHref = `/api/mutants${buildQuery({ ...values, superseded: filter.superseded, page: filter.page })}`;
 
   return (
     <PageContainer wide className="space-y-4" data-testid="project-mutants-page">
