@@ -14,6 +14,7 @@ import {
   REVIEW_STATUSES,
   REVIEW_STATUS_LABEL,
 } from "@/domain/mutants/status";
+import { AutoSubmitSelect } from "@/components/mutants/auto-submit-select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -55,22 +56,26 @@ export function FilterSelect({
   options,
   placeholder = "Any",
   testId,
+  autoSubmit,
 }: {
   name: string;
   value?: string;
   options: FilterOption[];
   placeholder?: string;
   testId?: string;
+  /** Submit the form on change instead of waiting for Apply. */
+  autoSubmit?: boolean;
 }) {
+  const Select = autoSubmit ? AutoSubmitSelect : "select";
   return (
-    <select name={name} defaultValue={value ?? ""} className={CONTROL_CLASS} data-testid={testId}>
+    <Select name={name} defaultValue={value ?? ""} className={CONTROL_CLASS} data-testid={testId}>
       <option value="">{placeholder}</option>
       {options.map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
         </option>
       ))}
-    </select>
+    </Select>
   );
 }
 
@@ -186,12 +191,7 @@ interface MutantFiltersProps {
   lockProject?: boolean;
 }
 
-export function MutantFilters({
-  action,
-  values,
-  projects,
-  lockProject,
-}: MutantFiltersProps) {
+export function MutantFilters({ action, values, projects, lockProject }: MutantFiltersProps) {
   const current = { ...values, project: lockProject ? undefined : values.project };
   const chips = (Object.keys(FILTER_LABELS) as (keyof MutantFilterValues)[]).flatMap((key) => {
     const value = current[key];
@@ -221,6 +221,7 @@ export function MutantFilters({
         {lockProject ? null : (
           <FilterField label="Project">
             <FilterSelect
+              autoSubmit
               name="project"
               value={values.project}
               options={projects}
@@ -231,6 +232,7 @@ export function MutantFilters({
         )}
         <FilterField label="Review">
           <FilterSelect
+            autoSubmit
             name="reviewStatus"
             value={values.reviewStatus}
             options={REVIEW_STATUS_OPTIONS}
@@ -239,6 +241,7 @@ export function MutantFilters({
         </FilterField>
         <FilterField label="Mutant status">
           <FilterSelect
+            autoSubmit
             name="mutationStatus"
             value={values.mutationStatus}
             options={MUTATION_STATUS_OPTIONS}
@@ -247,6 +250,7 @@ export function MutantFilters({
         </FilterField>
         <FilterField label="At HEAD">
           <FilterSelect
+            autoSubmit
             name="drift"
             value={values.drift}
             options={DRIFT_STATUS_OPTIONS}
@@ -255,6 +259,7 @@ export function MutantFilters({
         </FilterField>
         <FilterField label="Superseded">
           <FilterSelect
+            autoSubmit
             name="superseded"
             value={values.superseded}
             options={SUPERSEDED_OPTIONS}
@@ -291,7 +296,10 @@ export function MutantFilters({
         data-testid="filter-more"
       >
         <summary className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer list-none items-center gap-1 text-xs [&::-webkit-details-marker]:hidden">
-          <ChevronDown className="size-3.5 transition-transform group-open:rotate-180" aria-hidden />
+          <ChevronDown
+            className="size-3.5 transition-transform group-open:rotate-180"
+            aria-hidden
+          />
           More filters
         </summary>
         <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
@@ -315,6 +323,7 @@ export function MutantFilters({
           </FilterField>
           <FilterField label="Operator">
             <FilterSelect
+              autoSubmit
               name="operator"
               value={values.operator}
               options={OPERATOR_OPTIONS}
