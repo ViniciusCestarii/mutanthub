@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Filter, X } from "lucide-react";
+import { ChevronDown, Filter, X } from "lucide-react";
 import type {
   DriftStatus,
   MutationOperator,
@@ -177,7 +177,7 @@ export function MutantFilters({
       data-testid="mutant-filters"
     >
       {values.batch ? <input type="hidden" name="batch" value={values.batch} /> : null}
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-9">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
         {lockProject ? null : (
           <FilterField label="Project">
             <FilterSelect
@@ -189,14 +189,6 @@ export function MutantFilters({
             />
           </FilterField>
         )}
-        <FilterField label="Operator">
-          <FilterSelect
-            name="operator"
-            value={values.operator}
-            options={OPERATOR_OPTIONS}
-            testId="filter-operator"
-          />
-        </FilterField>
         <FilterField label="Review">
           <FilterSelect
             name="reviewStatus"
@@ -239,24 +231,6 @@ export function MutantFilters({
             testId="filter-contributor"
           />
         </FilterField>
-        <FilterField label="Commit">
-          <FilterInput
-            name="commit"
-            value={values.commit}
-            placeholder="sha prefix"
-            mono
-            testId="filter-commit"
-          />
-        </FilterField>
-        <FilterField label="File">
-          <FilterInput
-            name="file"
-            value={values.file}
-            placeholder="path contains"
-            mono
-            testId="filter-file"
-          />
-        </FilterField>
         <FilterField
           label="Search"
           className={lockProject ? "col-span-2 md:col-span-1 xl:col-span-2" : ""}
@@ -269,6 +243,44 @@ export function MutantFilters({
           />
         </FilterField>
       </div>
+      <details
+        className="group mt-2"
+        open={Boolean(values.commit || values.file || values.operator)}
+        data-testid="filter-more"
+      >
+        <summary className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer list-none items-center gap-1 text-xs [&::-webkit-details-marker]:hidden">
+          <ChevronDown className="size-3.5 transition-transform group-open:rotate-180" aria-hidden />
+          More filters
+        </summary>
+        <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+          <FilterField label="Commit">
+            <FilterInput
+              name="commit"
+              value={values.commit}
+              placeholder="sha prefix"
+              mono
+              testId="filter-commit"
+            />
+          </FilterField>
+          <FilterField label="File">
+            <FilterInput
+              name="file"
+              value={values.file}
+              placeholder="path contains"
+              mono
+              testId="filter-file"
+            />
+          </FilterField>
+          <FilterField label="Operator">
+            <FilterSelect
+              name="operator"
+              value={values.operator}
+              options={OPERATOR_OPTIONS}
+              testId="filter-operator"
+            />
+          </FilterField>
+        </div>
+      </details>
       <div className="mt-2 flex items-center justify-between gap-2">
         <span className="text-muted-foreground text-xs">
           {active ? `${active} filter${active === 1 ? "" : "s"} active` : "No filters"}
