@@ -165,18 +165,18 @@ export interface MutantFilterValues {
 const SORT_OPTIONS: FilterOption[] = [{ value: "oldest", label: "Oldest first" }];
 
 const FILTER_LABELS: Record<Exclude<keyof MutantFilterValues, "sort">, string> = {
-  project: "Project",
-  reviewStatus: "Review",
-  mutationStatus: "Mutant status",
-  drift: "At HEAD",
-  superseded: "Superseded",
-  contributor: "Contributor",
   q: "Search",
-  commit: "Commit",
-  file: "File",
+  project: "Project",
+  mutationStatus: "Mutant status",
+  reviewStatus: "Review",
   operator: "Operator",
+  contributor: "Contributor",
+  file: "File",
+  commit: "Commit",
   since: "Created from",
   until: "Created to",
+  drift: "At HEAD",
+  superseded: "Superseded",
   batch: "Import batch",
 };
 
@@ -230,7 +230,20 @@ export function MutantFilters({
       data-testid="mutant-filters"
     >
       {values.batch ? <input type="hidden" name="batch" value={values.batch} /> : null}
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+      <div
+        className={cn(
+          "grid grid-cols-2 gap-2 md:grid-cols-4",
+          lockProject ? "xl:grid-cols-6" : "xl:grid-cols-7",
+        )}
+      >
+        <FilterField label="Search" className="col-span-2">
+          <FilterInput
+            name="q"
+            value={values.q}
+            placeholder="title, code, path"
+            testId="filter-q"
+          />
+        </FilterField>
         {lockProject ? null : (
           <FilterField label="Project">
             <FilterSelect
@@ -243,15 +256,6 @@ export function MutantFilters({
             />
           </FilterField>
         )}
-        <FilterField label="Review">
-          <FilterSelect
-            autoSubmit
-            name="reviewStatus"
-            value={values.reviewStatus}
-            options={REVIEW_STATUS_OPTIONS}
-            testId="filter-review-status"
-          />
-        </FilterField>
         <FilterField label="Mutant status">
           <FilterSelect
             autoSubmit
@@ -261,23 +265,22 @@ export function MutantFilters({
             testId="filter-mutation-status"
           />
         </FilterField>
-        <FilterField label="At HEAD">
+        <FilterField label="Review">
           <FilterSelect
             autoSubmit
-            name="drift"
-            value={values.drift}
-            options={DRIFT_STATUS_OPTIONS}
-            testId="filter-drift"
+            name="reviewStatus"
+            value={values.reviewStatus}
+            options={REVIEW_STATUS_OPTIONS}
+            testId="filter-review-status"
           />
         </FilterField>
-        <FilterField label="Superseded">
+        <FilterField label="Operator">
           <FilterSelect
             autoSubmit
-            name="superseded"
-            value={values.superseded}
-            options={SUPERSEDED_OPTIONS}
-            placeholder="Show"
-            testId="filter-superseded"
+            name="operator"
+            value={values.operator}
+            options={OPERATOR_OPTIONS}
+            testId="filter-operator"
           />
         </FilterField>
         <FilterField label="Contributor">
@@ -289,22 +292,16 @@ export function MutantFilters({
             testId="filter-contributor"
           />
         </FilterField>
-        <FilterField
-          label="Search"
-          className={lockProject ? "col-span-2 md:col-span-1 xl:col-span-2" : ""}
-        >
-          <FilterInput
-            name="q"
-            value={values.q}
-            placeholder="title, code, path"
-            testId="filter-q"
-          />
-        </FilterField>
       </div>
       <details
         className="group mt-2"
         open={Boolean(
-          values.commit || values.file || values.operator || values.since || values.until,
+          values.file ||
+          values.commit ||
+          values.since ||
+          values.until ||
+          values.drift ||
+          values.superseded,
         )}
         data-testid="filter-more"
       >
@@ -315,16 +312,7 @@ export function MutantFilters({
           />
           More filters
         </summary>
-        <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
-          <FilterField label="Commit">
-            <FilterInput
-              name="commit"
-              value={values.commit}
-              placeholder="sha prefix"
-              mono
-              testId="filter-commit"
-            />
-          </FilterField>
+        <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
           <FilterField label="File">
             <FilterInput
               name="file"
@@ -334,13 +322,13 @@ export function MutantFilters({
               testId="filter-file"
             />
           </FilterField>
-          <FilterField label="Operator">
-            <FilterSelect
-              autoSubmit
-              name="operator"
-              value={values.operator}
-              options={OPERATOR_OPTIONS}
-              testId="filter-operator"
+          <FilterField label="Commit">
+            <FilterInput
+              name="commit"
+              value={values.commit}
+              placeholder="sha prefix"
+              mono
+              testId="filter-commit"
             />
           </FilterField>
           <FilterField label="Created from">
@@ -348,6 +336,25 @@ export function MutantFilters({
           </FilterField>
           <FilterField label="Created to">
             <FilterInput name="until" value={values.until} type="date" testId="filter-until" />
+          </FilterField>
+          <FilterField label="At HEAD">
+            <FilterSelect
+              autoSubmit
+              name="drift"
+              value={values.drift}
+              options={DRIFT_STATUS_OPTIONS}
+              testId="filter-drift"
+            />
+          </FilterField>
+          <FilterField label="Superseded">
+            <FilterSelect
+              autoSubmit
+              name="superseded"
+              value={values.superseded}
+              options={SUPERSEDED_OPTIONS}
+              placeholder="Show"
+              testId="filter-superseded"
+            />
           </FilterField>
         </div>
       </details>
