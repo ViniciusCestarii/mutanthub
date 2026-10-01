@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Braces, Code2, LayoutDashboard } from "lucide-react";
 import { projectService } from "@/server/services/project-service";
 import { mutantService } from "@/server/services/mutant-service";
+import { userRepository } from "@/server/repositories/user-repository";
 import { isAppError } from "@/lib/errors";
 import { PageContainer, PageHeader } from "@/components/shared/page-header";
 import { Pagination } from "@/components/shared/pagination";
@@ -55,7 +56,10 @@ export default async function ProjectMutantsPage({
   const project = await loadProject(owner, repo);
   const slug = `${project.githubOwner}/${project.githubRepository}`;
   const raw = { ...firstValues(await searchParams), project: slug };
-  const { items, total, filter } = await mutantService.list(raw);
+  const [{ items, total, filter }, contributors] = await Promise.all([
+    mutantService.list(raw),
+    userRepository.listMutantContributors(project.id),
+  ]);
 
   const values: MutantFilterValues = {
     project: slug,
@@ -114,7 +118,13 @@ export default async function ProjectMutantsPage({
           </>
         }
       />
-      <MutantFilters action={base} values={values} projects={[]} lockProject />
+      <MutantFilters
+        action={base}
+        values={values}
+        projects={[]}
+        contributors={contributors}
+        lockProject
+      />
       <div className="text-muted-foreground text-xs" data-testid="mutant-count">
         {total} mutant{total === 1 ? "" : "s"}
         {filter.file ? (

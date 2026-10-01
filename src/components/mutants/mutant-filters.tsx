@@ -15,6 +15,7 @@ import {
   REVIEW_STATUS_LABEL,
 } from "@/domain/mutants/status";
 import { AutoSubmitSelect } from "@/components/mutants/auto-submit-select";
+import { ContributorSelect } from "@/components/mutants/contributor-select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -191,11 +192,19 @@ interface MutantFiltersProps {
   action: string;
   values: MutantFilterValues;
   projects: FilterOption[];
+  /** Usernames offered by the contributor picker. */
+  contributors: string[];
   /** When true the project select is hidden (project pages). */
   lockProject?: boolean;
 }
 
-export function MutantFilters({ action, values, projects, lockProject }: MutantFiltersProps) {
+export function MutantFilters({
+  action,
+  values,
+  projects,
+  contributors,
+  lockProject,
+}: MutantFiltersProps) {
   const current = { ...values, project: lockProject ? undefined : values.project };
   const chips = (Object.keys(FILTER_LABELS) as (keyof typeof FILTER_LABELS)[]).flatMap((key) => {
     const value = current[key];
@@ -272,11 +281,11 @@ export function MutantFilters({ action, values, projects, lockProject }: MutantF
           />
         </FilterField>
         <FilterField label="Contributor">
-          <FilterInput
+          <ContributorSelect
             name="contributor"
             value={values.contributor}
-            placeholder="username"
-            mono
+            options={contributors}
+            className={CONTROL_CLASS}
             testId="filter-contributor"
           />
         </FilterField>

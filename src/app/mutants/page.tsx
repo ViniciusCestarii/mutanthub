@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Braces, BookOpen } from "lucide-react";
 import { mutantService } from "@/server/services/mutant-service";
 import { projectRepository } from "@/server/repositories/project-repository";
+import { userRepository } from "@/server/repositories/user-repository";
 import { PageContainer, PageHeader } from "@/components/shared/page-header";
 import { Pagination } from "@/components/shared/pagination";
 import { MutantTable } from "@/components/mutants/mutant-table";
@@ -34,9 +35,10 @@ export default async function MutantsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const raw = firstValues(await searchParams);
-  const [{ items, total, filter }, projects] = await Promise.all([
+  const [{ items, total, filter }, projects, contributors] = await Promise.all([
     mutantService.list(raw),
     projectRepository.list({ activeOnly: true }),
+    userRepository.listMutantContributors(),
   ]);
 
   const values: MutantFilterValues = {
@@ -84,6 +86,7 @@ export default async function MutantsPage({
           value: `${p.githubOwner}/${p.githubRepository}`,
           label: `${p.githubOwner}/${p.githubRepository}`,
         }))}
+        contributors={contributors}
       />
       <div className="text-muted-foreground text-xs" data-testid="mutant-count">
         {total} mutant{total === 1 ? "" : "s"}
