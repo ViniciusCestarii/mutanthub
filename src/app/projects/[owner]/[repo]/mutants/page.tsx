@@ -71,6 +71,7 @@ export default async function ProjectMutantsPage({
     superseded: filter.superseded,
     since: filter.since,
     until: filter.until,
+    sort: filter.sort,
   };
   const query = {
     ...values,

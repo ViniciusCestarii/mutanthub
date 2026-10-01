@@ -235,13 +235,13 @@ export const mutantRepository = {
     return prisma.mutant.findUnique({ where: { id }, select: mutantListSelect });
   },
 
-  async list(where: MutantListWhere, page: Page) {
+  async list(where: MutantListWhere, page: Page, order: "asc" | "desc" = "desc") {
     const prismaWhere = buildMutantWhere(where);
     const [items, total] = await prisma.$transaction([
       prisma.mutant.findMany({
         where: prismaWhere,
         select: mutantListSelect,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: order },
         skip: (page.page - 1) * page.pageSize,
         take: page.pageSize,
       }),

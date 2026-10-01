@@ -157,9 +157,13 @@ export interface MutantFilterValues {
   superseded?: "hide" | "only";
   since?: string;
   until?: string;
+  /** Not a filter: kept in the query but never shown as a chip. */
+  sort?: "oldest";
 }
 
-const FILTER_LABELS: Record<keyof MutantFilterValues, string> = {
+const SORT_OPTIONS: FilterOption[] = [{ value: "oldest", label: "Oldest first" }];
+
+const FILTER_LABELS: Record<Exclude<keyof MutantFilterValues, "sort">, string> = {
   project: "Project",
   reviewStatus: "Review",
   mutationStatus: "Mutant status",
@@ -193,7 +197,7 @@ interface MutantFiltersProps {
 
 export function MutantFilters({ action, values, projects, lockProject }: MutantFiltersProps) {
   const current = { ...values, project: lockProject ? undefined : values.project };
-  const chips = (Object.keys(FILTER_LABELS) as (keyof MutantFilterValues)[]).flatMap((key) => {
+  const chips = (Object.keys(FILTER_LABELS) as (keyof typeof FILTER_LABELS)[]).flatMap((key) => {
     const value = current[key];
     if (!value) return [];
     const display = FILTER_VALUE_OPTIONS[key]?.find((o) => o.value === value)?.label ?? value;
@@ -361,10 +365,21 @@ export function MutantFilters({ action, values, projects, lockProject }: MutantF
             <span className="text-muted-foreground text-xs">No filters</span>
           )}
         </div>
-        <div className="flex shrink-0 gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
+          <label className="w-32">
+            <span className="sr-only">Sort</span>
+            <FilterSelect
+              autoSubmit
+              name="sort"
+              value={values.sort}
+              options={SORT_OPTIONS}
+              placeholder="Newest first"
+              testId="filter-sort"
+            />
+          </label>
           {active ? (
             <Button asChild variant="ghost" size="sm">
-              <Link href={action}>
+              <Link href={`${action}${buildQuery({ sort: values.sort })}`}>
                 <X className="size-3.5" aria-hidden /> Clear
               </Link>
             </Button>

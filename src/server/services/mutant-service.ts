@@ -580,6 +580,7 @@ export const mutantService = {
           : undefined,
       },
       { page: filter.page, pageSize: filter.pageSize },
+      filter.sort === "oldest" ? "asc" : "desc",
     );
     return { ...result, filter };
   },
