@@ -199,7 +199,7 @@ export function MutantFilters({
             testId="filter-review-status"
           />
         </FilterField>
-        <FilterField label="Outcome">
+        <FilterField label="Mutant status">
           <FilterSelect
             name="mutationStatus"
             value={values.mutationStatus}
