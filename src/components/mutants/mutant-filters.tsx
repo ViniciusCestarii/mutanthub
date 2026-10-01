@@ -154,6 +154,30 @@ export interface MutantFilterValues {
   until?: string;
 }
 
+const FILTER_LABELS: Record<keyof MutantFilterValues, string> = {
+  project: "Project",
+  reviewStatus: "Review",
+  mutationStatus: "Mutant status",
+  drift: "At HEAD",
+  superseded: "Superseded",
+  contributor: "Contributor",
+  q: "Search",
+  commit: "Commit",
+  file: "File",
+  operator: "Operator",
+  since: "Created from",
+  until: "Created to",
+  batch: "Import batch",
+};
+
+const FILTER_VALUE_OPTIONS: Partial<Record<keyof MutantFilterValues, FilterOption[]>> = {
+  operator: OPERATOR_OPTIONS,
+  reviewStatus: REVIEW_STATUS_OPTIONS,
+  mutationStatus: MUTATION_STATUS_OPTIONS,
+  drift: DRIFT_STATUS_OPTIONS,
+  superseded: SUPERSEDED_OPTIONS,
+};
+
 interface MutantFiltersProps {
   action: string;
   values: MutantFilterValues;
@@ -168,11 +192,25 @@ export function MutantFilters({
   projects,
   lockProject,
 }: MutantFiltersProps) {
-  const active = Object.entries(values).filter(
-    ([k, v]) => v && !(lockProject && k === "project"),
-  ).length;
+  const current = { ...values, project: lockProject ? undefined : values.project };
+  const chips = (Object.keys(FILTER_LABELS) as (keyof MutantFilterValues)[]).flatMap((key) => {
+    const value = current[key];
+    if (!value) return [];
+    const display = FILTER_VALUE_OPTIONS[key]?.find((o) => o.value === value)?.label ?? value;
+    return [
+      {
+        key,
+        label: `${FILTER_LABELS[key]}: ${display}`,
+        href: `${action}${buildQuery({ ...current, [key]: undefined })}`,
+      },
+    ];
+  });
+  const active = chips.length;
   return (
     <form
+      // Remount on navigation so uncontrolled fields pick up the new defaultValues
+      // (e.g. after removing a chip).
+      key={JSON.stringify(values)}
       method="get"
       action={action}
       className="border-border bg-card rounded-lg border p-3"
@@ -292,10 +330,29 @@ export function MutantFilters({
         </div>
       </details>
       <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="text-muted-foreground text-xs">
-          {active ? `${active} filter${active === 1 ? "" : "s"} active` : "No filters"}
-        </span>
-        <div className="flex gap-1.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {active ? (
+            chips.map((chip) => (
+              <span
+                key={chip.key}
+                className="border-border bg-muted/50 inline-flex max-w-64 items-center gap-1 rounded-full border py-0.5 pr-1 pl-2.5 text-xs"
+                data-testid={`filter-chip-${chip.key}`}
+              >
+                <span className="truncate">{chip.label}</span>
+                <Link
+                  href={chip.href}
+                  aria-label={`Remove ${chip.label}`}
+                  className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-full p-0.5"
+                >
+                  <X className="size-3" aria-hidden />
+                </Link>
+              </span>
+            ))
+          ) : (
+            <span className="text-muted-foreground text-xs">No filters</span>
+          )}
+        </div>
+        <div className="flex shrink-0 gap-1.5">
           {active ? (
             <Button asChild variant="ghost" size="sm">
               <Link href={action}>
