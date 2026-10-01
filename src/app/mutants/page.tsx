@@ -50,6 +50,8 @@ export default async function MutantsPage({
     q: filter.q,
     drift: filter.drift,
     superseded: filter.superseded,
+    since: filter.since,
+    until: filter.until,
   };
   const query = { ...values, pageSize: filter.pageSize !== 25 ? filter.pageSize : undefined };
   const apiHref = `/api/mutants${buildQuery({ ...query, page: filter.page })}`;

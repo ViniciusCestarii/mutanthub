@@ -69,6 +69,8 @@ export default async function ProjectMutantsPage({
     batch: filter.batch,
     drift: filter.drift,
     superseded: filter.superseded,
+    since: filter.since,
+    until: filter.until,
   };
   const query = {
     ...values,

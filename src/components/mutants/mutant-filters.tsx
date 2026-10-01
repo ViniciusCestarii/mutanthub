@@ -150,6 +150,8 @@ export interface MutantFilterValues {
   batch?: string;
   drift?: DriftStatus;
   superseded?: "hide" | "only";
+  since?: string;
+  until?: string;
 }
 
 interface MutantFiltersProps {
@@ -245,7 +247,9 @@ export function MutantFilters({
       </div>
       <details
         className="group mt-2"
-        open={Boolean(values.commit || values.file || values.operator)}
+        open={Boolean(
+          values.commit || values.file || values.operator || values.since || values.until,
+        )}
         data-testid="filter-more"
       >
         <summary className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer list-none items-center gap-1 text-xs [&::-webkit-details-marker]:hidden">
@@ -278,6 +282,12 @@ export function MutantFilters({
               options={OPERATOR_OPTIONS}
               testId="filter-operator"
             />
+          </FilterField>
+          <FilterField label="Created from">
+            <FilterInput name="since" value={values.since} type="date" testId="filter-since" />
+          </FilterField>
+          <FilterField label="Created to">
+            <FilterInput name="until" value={values.until} type="date" testId="filter-until" />
           </FilterField>
         </div>
       </details>
